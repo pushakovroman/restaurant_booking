@@ -24,24 +24,37 @@ jobs:
       - name: Build Project and Deploy
         shell: pwsh
         run: |
-          if (Test-Path "restaurant_booking_qt/CMakeLists.txt") {
-            cd restaurant_booking_qt
+          # 1. Находим папку с CMakeLists.txt
+          $cmakeItem = Get-ChildItem -Filter "CMakeLists.txt" -Recurse | Select-Object -First 1
+          if (-not $cmakeItem) {
+            Write-Error "CMakeLists.txt не найден!"
+            exit 1
           }
+          cd $cmakeItem.DirectoryName
+
+          # 2. Компилируем проект
           cmake -B build -DCMAKE_BUILD_TYPE=Release
           cmake --build build --config Release
-          
-          New-Item -ItemType Directory -Force -Path dist
-          if (Test-Path "build/Release/RestaurantBookingApp.exe") {
-            Copy-Item "build/Release/RestaurantBookingApp.exe" -Destination "dist/"
-          } elseif (Test-Path "build/RestaurantBookingApp.exe") {
-            Copy-Item "build/RestaurantBookingApp.exe" -Destination "dist/"
+
+          # 3. Создаем папку для готового релиза в корне репозитория
+          $outDir = "$env:GITHUB_WORKSPACE/release_dist"
+          New-Item -ItemType Directory -Force -Path $outDir
+
+          # 4. Копируем исполняемый .exe
+          $exeItem = Get-ChildItem -Path "build" -Filter "RestaurantBookingApp.exe" -Recurse | Select-Object -First 1
+          Copy-Item $exeItem.FullName -Destination $outDir
+
+          # 5. Копируем базу данных SQLite
+          $dataItem = Get-ChildItem -Directory -Filter "data" -Recurse | Select-Object -First 1
+          if ($dataItem) {
+            Copy-Item -Recurse -Force $dataItem.FullName -Destination "$outDir/data"
           }
-          
-          Copy-Item -Recurse -Force "data" -Destination "dist/"
-          windeployqt --release --no-translations --no-system-d3d-compiler --no-opengl-sw dist/RestaurantBookingApp.exe
+
+          # 6. Копируем все необходимые dll-библиотеки Qt и плагины
+          windeployqt --release --no-translations --no-system-d3d-compiler --no-opengl-sw "$outDir/RestaurantBookingApp.exe"
 
       - name: Upload Windows EXE
         uses: actions/upload-artifact@v4
         with:
           name: RestaurantBooking_Windows_x64
-          path: dist/
+          path: release_dist
