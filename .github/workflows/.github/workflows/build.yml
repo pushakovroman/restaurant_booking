@@ -1,0 +1,47 @@
+name: Build Windows EXE (Qt6 + SQLite)
+
+on:
+  push:
+    branches: [ "**" ]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Qt6
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.6.3'
+          host: 'windows'
+          target: 'desktop'
+          arch: 'win64_msvc2019_64'
+
+      - name: Build Project and Deploy
+        shell: pwsh
+        run: |
+          if (Test-Path "restaurant_booking_qt/CMakeLists.txt") {
+            cd restaurant_booking_qt
+          }
+          cmake -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --config Release
+          
+          New-Item -ItemType Directory -Force -Path dist
+          if (Test-Path "build/Release/RestaurantBookingApp.exe") {
+            Copy-Item "build/Release/RestaurantBookingApp.exe" -Destination "dist/"
+          } elseif (Test-Path "build/RestaurantBookingApp.exe") {
+            Copy-Item "build/RestaurantBookingApp.exe" -Destination "dist/"
+          }
+          
+          Copy-Item -Recurse -Force "data" -Destination "dist/"
+          windeployqt --release --no-translations --no-system-d3d-compiler --no-opengl-sw dist/RestaurantBookingApp.exe
+
+      - name: Upload Windows EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: RestaurantBooking_Windows_x64
+          path: dist/
