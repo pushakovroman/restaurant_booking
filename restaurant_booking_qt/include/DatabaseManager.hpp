@@ -20,13 +20,12 @@ public:
     // Столики и 2D-карта зала
     std::vector<TableInfo> getAllTables() const;
     TableInfo getTableById(int id) const;
-    // 0 = Свободен, 1 = Забронирован (Confirmed), 2 = Занят в ресторане (Seated)
     int getTableOccupancyStatus(int tableId, const QString& date, int startHour, int durationHours) const;
     QMap<int, QString> getActiveGuestBadgeByTable(const QString& date, int startHour, int durationHours) const;
     bool isTableAvailable(int tableId, const QString& date, int startHour, int durationHours, int ignoreReservationId = 0) const;
     int getFreeHoursFrom(int tableId, const QString& date, int startHour) const;
 
-    // Меню и блюда
+    // Меню и блюда (цены в BYN)
     std::vector<DishInfo> getAllDishes() const;
     DishInfo getDishById(int id) const;
     std::vector<DishInfo> searchDishes(const QString& category,
@@ -71,7 +70,9 @@ public:
     std::vector<TableRecommendation> recommendTables(const TablePreference& pref) const;
     std::vector<MenuSetRecommendation> recommendMenuSets(const MenuPreference& pref) const;
 
-    // Генерация текстовых отчетов и квитанций для экспорта
+    // Аналитические данные для графиков и текстовых отчетов
+    QMap<int, int> getHourlyOccupiedTablesCount(const QString& date) const;
+    QMap<QString, double> getRevenueByZone(const QString& date) const;
     QString formatReservationReceipt(int reservationId) const;
     QString formatDailyAnalyticsReport(const QString& date) const;
 

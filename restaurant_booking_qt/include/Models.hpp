@@ -18,7 +18,7 @@ struct TableInfo {
     bool isQuiet = false;
     bool hasSofa = false;
     bool nearWindow = false;
-    double minDeposit = 0.0;
+    double minDeposit = 0.0; // в BYN
     QString description;
 };
 
@@ -26,7 +26,7 @@ struct DishInfo {
     int id = 0;
     QString name;
     QString category;       // "Закуски", "Супы", "Горячее", "Десерты", "Напитки"
-    double price = 0.0;
+    double price = 0.0;     // в BYN
     int weightGrams = 0;
     int calories = 0;
     int prepTimeMin = 15;
@@ -37,7 +37,7 @@ struct DishInfo {
 struct PreorderItem {
     int dishId = 0;
     QString dishName;
-    double unitPrice = 0.0;
+    double unitPrice = 0.0; // в BYN
     int quantity = 1;
 };
 
@@ -45,7 +45,7 @@ struct ReservationInfo {
     int id = 0;
     QString bookingCode;    // "BK-1001"
     QString guestName;
-    QString guestPhone;
+    QString guestPhone;     // "+375 (29) ..."
     QString visitDate;      // "YYYY-MM-DD"
     int startHour = 19;     // 10..22
     int durationHours = 2;  // 1..4
@@ -101,8 +101,8 @@ struct TableRecommendation {
 };
 
 struct MenuPreference {
-    double maxBudget = 2500.0;
-    QString dietaryTag;     // "", "вегетарианское", "без глютена", "морепродукты", "легкое"
+    double maxBudget = 90.0; // в BYN
+    QString dietaryTag;      // "", "вегетарианское", "без глютена", "морепродукты", "легкое"
     bool avoidSpicy = false;
     int maxCalories = 0;
 };
@@ -110,7 +110,7 @@ struct MenuPreference {
 struct MenuSetRecommendation {
     QString title;
     std::vector<DishInfo> dishes;
-    double totalPrice = 0.0;
+    double totalPrice = 0.0; // в BYN
     int totalCalories = 0;
     int maxPrepTimeMin = 0;
     QString explanation;

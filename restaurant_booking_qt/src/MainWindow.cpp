@@ -1,12 +1,10 @@
 #include "MainWindow.hpp"
-#include <QListWidgetItem>
-#include <QTableWidgetItem>
+#include <QApplication>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGridLayout>
 #include <QFormLayout>
 #include <QGroupBox>
-#include <QPushButton>
 #include <QHeaderView>
 #include <QMessageBox>
 #include <QInputDialog>
@@ -14,16 +12,220 @@
 #include <QFile>
 #include <QTextStream>
 #include <QDate>
-#include <QDialog>
-#include <QDialogButtonBox>
+#include <QGraphicsDropShadowEffect>
 #include <algorithm>
 
 namespace Restaurant {
 
+QString MainWindow::darkLuxuryStyleSheet() {
+    return R"(
+        QMainWindow, QWidget {
+            background-color: #171923;
+            color: #ECEFF4;
+            font-family: "Segoe UI", "Noto Sans", sans-serif;
+            font-size: 12px;
+        }
+        QFrame#SidebarFrame {
+            background-color: #11131C;
+            border-right: 1px solid #2D3246;
+        }
+        QFrame#KpiCard {
+            background-color: #212434;
+            border: 1px solid #353B54;
+            border-radius: 10px;
+        }
+        QListWidget#SidebarNav {
+            background-color: transparent;
+            border: none;
+            outline: none;
+            font-size: 13px;
+            font-weight: bold;
+        }
+        QListWidget#SidebarNav::item {
+            padding: 12px 14px;
+            margin: 4px 8px;
+            border-radius: 8px;
+            color: #B8C1D1;
+        }
+        QListWidget#SidebarNav::item:hover {
+            background-color: #232738;
+            color: #FFFFFF;
+        }
+        QListWidget#SidebarNav::item:selected {
+            background-color: #D4AF37;
+            color: #14161F;
+        }
+        QGroupBox {
+            background-color: #1E2130;
+            border: 1px solid #32384F;
+            border-radius: 10px;
+            margin-top: 12px;
+            padding-top: 12px;
+            font-weight: bold;
+            color: #F5D76E;
+        }
+        QGroupBox::title {
+            subcontrol-origin: margin;
+            left: 14px;
+            padding: 0 6px;
+        }
+        QLineEdit, QPlainTextEdit, QSpinBox, QDoubleSpinBox, QComboBox, QDateEdit {
+            background-color: #141620;
+            border: 1px solid #3E4560;
+            border-radius: 6px;
+            padding: 6px 8px;
+            color: #FFFFFF;
+        }
+        QTableWidget, QListWidget {
+            background-color: #161823;
+            border: 1px solid #2F354B;
+            border-radius: 8px;
+            gridline-color: #272B3D;
+            selection-background-color: #364F6B;
+        }
+        QHeaderView::section {
+            background-color: #25293C;
+            color: #F5D76E;
+            padding: 7px;
+            border: 1px solid #32384F;
+            font-weight: bold;
+        }
+        QPushButton {
+            background-color: #2D334A;
+            color: #FFFFFF;
+            border: 1px solid #454E6E;
+            border-radius: 7px;
+            padding: 7px 13px;
+            font-weight: bold;
+        }
+        QPushButton:hover {
+            background-color: #3D4563;
+        }
+        QSlider::groove:horizontal {
+            height: 8px;
+            background: #272B3D;
+            border-radius: 4px;
+        }
+        QSlider::sub-page:horizontal {
+            background: #D4AF37;
+            border-radius: 4px;
+        }
+        QSlider::handle:horizontal {
+            background: #F5D76E;
+            border: 2px solid #171923;
+            width: 18px;
+            margin: -6px 0;
+            border-radius: 9px;
+        }
+    )";
+}
+
+QString MainWindow::lightCafeStyleSheet() {
+    return R"(
+        QMainWindow, QWidget {
+            background-color: #F4F1EA;
+            color: #2C3038;
+            font-family: "Segoe UI", "Noto Sans", sans-serif;
+            font-size: 12px;
+        }
+        QFrame#SidebarFrame {
+            background-color: #E8E2D5;
+            border-right: 1px solid #C8BFA8;
+        }
+        QFrame#KpiCard {
+            background-color: #FFFFFF;
+            border: 1px solid #D8D0C0;
+            border-radius: 10px;
+        }
+        QListWidget#SidebarNav {
+            background-color: transparent;
+            border: none;
+            outline: none;
+            font-size: 13px;
+            font-weight: bold;
+        }
+        QListWidget#SidebarNav::item {
+            padding: 12px 14px;
+            margin: 4px 8px;
+            border-radius: 8px;
+            color: #4A443B;
+        }
+        QListWidget#SidebarNav::item:hover {
+            background-color: #DCD4C4;
+        }
+        QListWidget#SidebarNav::item:selected {
+            background-color: #B8860B;
+            color: #FFFFFF;
+        }
+        QGroupBox {
+            background-color: #FFFFFF;
+            border: 1px solid #D6CEBE;
+            border-radius: 10px;
+            margin-top: 12px;
+            padding-top: 12px;
+            font-weight: bold;
+            color: #8B6508;
+        }
+        QGroupBox::title {
+            subcontrol-origin: margin;
+            left: 14px;
+            padding: 0 6px;
+        }
+        QLineEdit, QPlainTextEdit, QSpinBox, QDoubleSpinBox, QComboBox, QDateEdit {
+            background-color: #FAF8F5;
+            border: 1px solid #C2B9A7;
+            border-radius: 6px;
+            padding: 6px 8px;
+            color: #1E2028;
+        }
+        QTableWidget, QListWidget {
+            background-color: #FFFFFF;
+            border: 1px solid #D6CEBE;
+            border-radius: 8px;
+            gridline-color: #E6E0D4;
+            selection-background-color: #D4AF37;
+            selection-color: #181A24;
+        }
+        QHeaderView::section {
+            background-color: #EAE4D7;
+            color: #5C4308;
+            padding: 7px;
+            border: 1px solid #D6CEBE;
+            font-weight: bold;
+        }
+        QPushButton {
+            background-color: #E2DBD0;
+            color: #2C3038;
+            border: 1px solid #BFB6A4;
+            border-radius: 7px;
+            padding: 7px 13px;
+            font-weight: bold;
+        }
+        QPushButton:hover {
+            background-color: #D5CCB8;
+        }
+        QSlider::groove:horizontal {
+            height: 8px;
+            background: #D6CEBE;
+            border-radius: 4px;
+        }
+        QSlider::sub-page:horizontal {
+            background: #B8860B;
+            border-radius: 4px;
+        }
+        QSlider::handle:horizontal {
+            background: #8B6508;
+            width: 18px;
+            margin: -6px 0;
+            border-radius: 9px;
+        }
+    )";
+}
+
 MainWindow::MainWindow(DatabaseManager& db, QWidget* parent)
     : QMainWindow(parent), db_(db) {
-    setWindowTitle("Система бронирования в ресторане «Aura Gastronomy» — Qt GUI + SQLite (v3.1 Pro)");
-    resize(1380, 860);
+    setWindowTitle("Система бронирования «Aura Gastronomy Minsk» — Pro UI (Qt + SQLite • BYN)");
+    resize(1420, 880);
     setupUi();
     reloadDishCombos();
     refreshAllViews();
@@ -35,74 +237,181 @@ QString MainWindow::activeDateString() const {
     return dateEdit_->date().toString("yyyy-MM-dd");
 }
 
+void MainWindow::switchToPage(int index) {
+    if (sidebarNav_ && pagesStack_ && index >= 0 && index < pagesStack_->count()) {
+        sidebarNav_->setCurrentRow(index);
+        pagesStack_->setCurrentIndex(index);
+    }
+}
+
+QFrame* MainWindow::createKpiCard(const QString& title, QLabel*& outValueLabel, const QString& accentColor) {
+    QFrame* card = new QFrame();
+    card->setObjectName("KpiCard");
+    QVBoxLayout* v = new QVBoxLayout(card);
+    v->setContentsMargins(14, 10, 14, 10);
+    v->setSpacing(4);
+
+    QLabel* titleLbl = new QLabel(title);
+    titleLbl->setStyleSheet("font-size: 11px; color: #9AA5B8; font-weight: bold;");
+    v->addWidget(titleLbl);
+
+    outValueLabel = new QLabel("—");
+    outValueLabel->setStyleSheet(QString("font-size: 16px; font-weight: bold; color: %1;").arg(accentColor));
+    v->addWidget(outValueLabel);
+
+    QGraphicsDropShadowEffect* shadow = new QGraphicsDropShadowEffect(card);
+    shadow->setBlurRadius(16);
+    shadow->setOffset(0, 4);
+    shadow->setColor(QColor(0, 0, 0, 90));
+    card->setGraphicsEffect(shadow);
+
+    return card;
+}
+
 void MainWindow::setupUi() {
     QWidget* central = new QWidget(this);
-    QVBoxLayout* rootLayout = new QVBoxLayout(central);
-    rootLayout->setContentsMargins(12, 10, 12, 10);
-    rootLayout->setSpacing(10);
+    QHBoxLayout* mainHLayout = new QHBoxLayout(central);
+    mainHLayout->setContentsMargins(0, 0, 0, 0);
+    mainHLayout->setSpacing(0);
 
-    // Верхняя панель фильтрации даты/времени и оперативной сводки
-    QGroupBox* topBar = new QGroupBox("Параметры смены и просматриваемого интервала времени (режим работы: 10:00 – 23:00)");
-    QHBoxLayout* topLayout = new QHBoxLayout(topBar);
+    // 1. ЛЕВАЯ БОКОВАЯ ПАНЕЛЬ НАВИГАЦИИ (SIDEBAR)
+    QFrame* sidebar = new QFrame();
+    sidebar->setObjectName("SidebarFrame");
+    sidebar->setFixedWidth(245);
+    QVBoxLayout* sideLayout = new QVBoxLayout(sidebar);
+    sideLayout->setContentsMargins(10, 16, 10, 16);
+    sideLayout->setSpacing(10);
 
-    topLayout->addWidget(new QLabel("Дата визита:"));
+    QLabel* brandTitle = new QLabel("AURA MINSK");
+    brandTitle->setAlignment(Qt::AlignCenter);
+    brandTitle->setStyleSheet("font-size: 20px; font-weight: bold; color: #D4AF37; letter-spacing: 2px;");
+    sideLayout->addWidget(brandTitle);
+
+    QLabel* brandSub = new QLabel("GASTRONOMY • РЕСТОРАН (BYN)");
+    brandSub->setAlignment(Qt::AlignCenter);
+    brandSub->setStyleSheet("font-size: 10px; color: #8892A6; margin-bottom: 10px;");
+    sideLayout->addWidget(brandSub);
+
+    sidebarNav_ = new QListWidget();
+    sidebarNav_->setObjectName("SidebarNav");
+    sidebarNav_->addItem("🗺   2D-Карта зала");
+    sidebarNav_->addItem("📅   Запись и Хостес");
+    sidebarNav_->addItem("✨   Рекомендации");
+    sidebarNav_->addItem("🍽   Меню (BYN)");
+    sidebarNav_->addItem("📊   Отзывы и Графики");
+    sidebarNav_->setCurrentRow(0);
+    sideLayout->addWidget(sidebarNav_, 1);
+
+    themeToggleBtn_ = new QPushButton("☀ Светлая тема (Light Café)");
+    connect(themeToggleBtn_, &QPushButton::clicked, this, &MainWindow::onToggleThemeClicked);
+    sideLayout->addWidget(themeToggleBtn_);
+
+    QPushButton* refreshSideBtn = new QPushButton("↻ Синхронизировать БД");
+    connect(refreshSideBtn, &QPushButton::clicked, this, &MainWindow::refreshAllViews);
+    sideLayout->addWidget(refreshSideBtn);
+
+    mainHLayout->addWidget(sidebar);
+
+    // 2. ПРАВАЯ РАБОЧАЯ ОБЛАСТЬ (KPI-шапка + Таймлайн + Стек экранов)
+    QWidget* rightArea = new QWidget();
+    QVBoxLayout* rightLayout = new QVBoxLayout(rightArea);
+    rightLayout->setContentsMargins(14, 12, 14, 12);
+    rightLayout->setSpacing(10);
+
+    // 2.1. Ряд из 4 KPI-карточек с тенями
+    QHBoxLayout* kpiRow = new QHBoxLayout();
+    kpiRow->setSpacing(12);
+    kpiRow->addWidget(createKpiCard("🟢 СВОБОДНО СТОЛОВ", kpiFreeTablesLabel_, "#2ECC71"), 1);
+    kpiRow->addWidget(createKpiCard("🔴 СЕЙЧАС В ЗАЛЕ", kpiSeatedGuestsLabel_, "#E74C3C"), 1);
+    kpiRow->addWidget(createKpiCard("⏳ ЛИСТ ОЖИДАНИЯ", kpiWaitlistLabel_, "#F39C12"), 1);
+    kpiRow->addWidget(createKpiCard("💳 ВЫРУЧКА ДНЯ И РЕЙТИНГ", kpiRevenueRatingLabel_, "#F5D76E"), 1);
+    rightLayout->addLayout(kpiRow);
+
+    // 2.2. Панель «Машина времени» с интерактивным ползунком часа (10:00 – 22:00)
+    QGroupBox* timeBox = new QGroupBox("Интерактивный таймлайн зала («Машина времени» 10:00 – 23:00)");
+    QHBoxLayout* timeLayout = new QHBoxLayout(timeBox);
+
+    timeLayout->addWidget(new QLabel("Дата:"));
     dateEdit_ = new QDateEdit(QDate(2026, 10, 16));
     dateEdit_->setCalendarPopup(true);
     dateEdit_->setDisplayFormat("yyyy-MM-dd");
-    topLayout->addWidget(dateEdit_);
+    timeLayout->addWidget(dateEdit_);
 
-    topLayout->addSpacing(12);
-    topLayout->addWidget(new QLabel("Час начала (10..22):"));
+    timeLayout->addSpacing(10);
+    timeLayout->addWidget(new QLabel("Час:"));
     hourSpin_ = new QSpinBox();
     hourSpin_->setRange(DatabaseManager::OPEN_HOUR, DatabaseManager::CLOSE_HOUR - 1);
     hourSpin_->setValue(19);
     hourSpin_->setSuffix(":00");
-    topLayout->addWidget(hourSpin_);
+    timeLayout->addWidget(hourSpin_);
 
-    topLayout->addSpacing(12);
-    topLayout->addWidget(new QLabel("Длительность:"));
+    timeLayout->addSpacing(8);
+    timeLayout->addWidget(new QLabel("10:00"));
+    timeSlider_ = new QSlider(Qt::Horizontal);
+    timeSlider_->setRange(DatabaseManager::OPEN_HOUR, DatabaseManager::CLOSE_HOUR - 1);
+    timeSlider_->setValue(19);
+    timeSlider_->setTickPosition(QSlider::TicksBelow);
+    timeSlider_->setTickInterval(1);
+    timeLayout->addWidget(timeSlider_, 1);
+    timeLayout->addWidget(new QLabel("22:00"));
+
+    timeLayout->addSpacing(12);
+    timeLayout->addWidget(new QLabel("Длительность визита:"));
     durationSpin_ = new QSpinBox();
     durationSpin_->setRange(1, 4);
     durationSpin_->setValue(2);
     durationSpin_->setSuffix(" ч.");
-    topLayout->addWidget(durationSpin_);
-
-    topLayout->addSpacing(20);
-    summaryBannerLabel_ = new QLabel();
-    summaryBannerLabel_->setStyleSheet("font-weight: bold; color: #F5D76E; font-size: 13px;");
-    topLayout->addWidget(summaryBannerLabel_, 1);
-
-    QPushButton* refreshBtn = new QPushButton("↻ Обновить данные");
-    connect(refreshBtn, &QPushButton::clicked, this, &MainWindow::refreshAllViews);
-    topLayout->addWidget(refreshBtn);
+    timeLayout->addWidget(durationSpin_);
 
     connect(dateEdit_, &QDateEdit::dateChanged, this, &MainWindow::onDateTimeFilterChanged);
     connect(hourSpin_, QOverload<int>::of(&QSpinBox::valueChanged), this, &MainWindow::onDateTimeFilterChanged);
+    connect(timeSlider_, &QSlider::valueChanged, this, &MainWindow::onTimeSliderChanged);
     connect(durationSpin_, QOverload<int>::of(&QSpinBox::valueChanged), this, &MainWindow::onDateTimeFilterChanged);
 
-    rootLayout->addWidget(topBar);
+    rightLayout->addWidget(timeBox);
 
-    // Главные вкладки приложения
-    mainTabs_ = new QTabWidget();
-    mainTabs_->addTab(createFloorMapTab(), "🗺 Интерактивная 2D-карта зала");
-    mainTabs_->addTab(createBookingTab(), "📅 Онлайн-запись + В ресторане (Хостес)");
-    mainTabs_->addTab(createRecommenderTab(), "✨ Рекомендации под твой запрос");
-    mainTabs_->addTab(createMenuTab(), "🍽 Меню и управление блюдами");
-    mainTabs_->addTab(createReviewsAndAnalyticsTab(), "💬 Комментарии, отзывы и Аналитика");
+    // 2.3. Стек страниц
+    pagesStack_ = new QStackedWidget();
+    pagesStack_->addWidget(createFloorMapPage());
+    pagesStack_->addWidget(createBookingPage());
+    pagesStack_->addWidget(createRecommenderPage());
+    pagesStack_->addWidget(createMenuPage());
+    pagesStack_->addWidget(createReviewsAndAnalyticsPage());
 
-    rootLayout->addWidget(mainTabs_, 1);
+    connect(sidebarNav_, &QListWidget::currentRowChanged, pagesStack_, &QStackedWidget::setCurrentIndex);
+
+    rightLayout->addWidget(pagesStack_, 1);
+    mainHLayout->addWidget(rightArea, 1);
+
     setCentralWidget(central);
 }
 
-QWidget* MainWindow::createFloorMapTab() {
-    QWidget* tab = new QWidget();
-    QHBoxLayout* layout = new QHBoxLayout(tab);
+void MainWindow::onToggleThemeClicked() {
+    isDarkTheme_ = !isDarkTheme_;
+    if (isDarkTheme_) {
+        qApp->setStyleSheet(darkLuxuryStyleSheet());
+        themeToggleBtn_->setText("☀ Светлая тема (Light Café)");
+    } else {
+        qApp->setStyleSheet(lightCafeStyleSheet());
+        themeToggleBtn_->setText("🌙 Темная тема (Dark Luxury)");
+    }
+}
+
+void MainWindow::onTimeSliderChanged(int value) {
+    if (hourSpin_->value() != value) {
+        hourSpin_->setValue(value);
+    }
+}
+
+QWidget* MainWindow::createFloorMapPage() {
+    QWidget* page = new QWidget();
+    QHBoxLayout* layout = new QHBoxLayout(page);
+    layout->setContentsMargins(0, 0, 0, 0);
 
     floorMapWidget_ = new FloorMapWidget();
     connect(floorMapWidget_, &FloorMapWidget::tableSelected, this, &MainWindow::onTableSelectedOnMap);
     layout->addWidget(floorMapWidget_, 3);
 
-    // Правая панель: Детальная карточка выбранного стола
     QGroupBox* sideBox = new QGroupBox("Карточка выбранного столика на 2D-карте");
     QVBoxLayout* sideLayout = new QVBoxLayout(sideBox);
 
@@ -128,7 +437,7 @@ QWidget* MainWindow::createFloorMapTab() {
 
     cardScheduleLabel_ = new QLabel();
     cardScheduleLabel_->setWordWrap(true);
-    cardScheduleLabel_->setStyleSheet("background-color: #181A24; padding: 8px; border-radius: 6px; font-family: monospace;");
+    cardScheduleLabel_->setStyleSheet("background-color: #141620; color: #E5E9F0; padding: 8px; border-radius: 6px; font-family: monospace;");
     sideLayout->addWidget(cardScheduleLabel_);
 
     sideLayout->addWidget(new QLabel("Отзывы гостей об этом столике:"));
@@ -136,25 +445,25 @@ QWidget* MainWindow::createFloorMapTab() {
     sideLayout->addWidget(cardReviewsList_, 1);
 
     QPushButton* btnBookOnline = new QPushButton("📅 Оформить Онлайн-бронь этого столика");
-    btnBookOnline->setStyleSheet("background-color: #2980B9; color: white; font-weight: bold; padding: 8px;");
+    btnBookOnline->setStyleSheet("background-color: #2980B9; color: white; font-weight: bold; padding: 9px;");
     connect(btnBookOnline, &QPushButton::clicked, this, &MainWindow::onQuickBookFromMap);
     sideLayout->addWidget(btnBookOnline);
 
     QPushButton* btnSeatWalkIn = new QPushButton("🚶 Посадить гостей сейчас (В ресторане / Walk-in)");
-    btnSeatWalkIn->setStyleSheet("background-color: #27AE60; color: white; font-weight: bold; padding: 8px;");
+    btnSeatWalkIn->setStyleSheet("background-color: #27AE60; color: white; font-weight: bold; padding: 9px;");
     connect(btnSeatWalkIn, &QPushButton::clicked, this, &MainWindow::onQuickWalkInFromMap);
     sideLayout->addWidget(btnSeatWalkIn);
 
     layout->addWidget(sideBox, 2);
-    return tab;
+    return page;
 }
 
-QWidget* MainWindow::createBookingTab() {
-    QWidget* tab = new QWidget();
-    QHBoxLayout* layout = new QHBoxLayout(tab);
+QWidget* MainWindow::createBookingPage() {
+    QWidget* page = new QWidget();
+    QHBoxLayout* layout = new QHBoxLayout(page);
+    layout->setContentsMargins(0, 0, 0, 0);
 
-    // Левая колонка: форма создания брони или посадки Walk-in
-    QGroupBox* formBox = new QGroupBox("Оформление записи (Онлайн или В ресторане)");
+    QGroupBox* formBox = new QGroupBox("Оформление записи (Онлайн или В ресторане • РБ)");
     QVBoxLayout* formLayout = new QVBoxLayout(formBox);
 
     QFormLayout* fields = new QFormLayout();
@@ -169,9 +478,9 @@ QWidget* MainWindow::createBookingTab() {
     guestNameEdit_->setPlaceholderText("Введите имя и фамилию гостя");
     fields->addRow("Имя гостя:", guestNameEdit_);
 
-    guestPhoneEdit_ = new QLineEdit("+7 (915) 222-33-44");
-    guestPhoneEdit_->setPlaceholderText("+7 (___) ___-__-__");
-    fields->addRow("Телефон:", guestPhoneEdit_);
+    guestPhoneEdit_ = new QLineEdit("+375 (29) 622-33-44");
+    guestPhoneEdit_->setPlaceholderText("+375 (29/44/33/25) ___-__-__");
+    fields->addRow("Телефон (Беларусь):", guestPhoneEdit_);
 
     partySizeSpin_ = new QSpinBox();
     partySizeSpin_->setRange(1, 12);
@@ -194,12 +503,11 @@ QWidget* MainWindow::createBookingTab() {
 
     formLayout->addWidget(new QLabel("Комментарий к брони (пожелания, аллергии, подача блюд):"));
     bookingCommentEdit_ = new QPlainTextEdit();
-    bookingCommentEdit_->setPlaceholderText("Например: столик у окна, свечи, аллергия на орехи...");
-    bookingCommentEdit_->setMaximumHeight(60);
+    bookingCommentEdit_->setPlaceholderText("Например: столик у окна с видом на Свислочь, свечи, без орехов...");
+    bookingCommentEdit_->setMaximumHeight(58);
     formLayout->addWidget(bookingCommentEdit_);
 
-    // Корзина предзаказа по меню
-    QGroupBox* preBox = new QGroupBox("Предзаказ блюд к приходу гостей (при онлайн-записи скидка 5%)");
+    QGroupBox* preBox = new QGroupBox("Предзаказ блюд (цены в BYN • при онлайн-записи скидка 5%)");
     QVBoxLayout* preLayout = new QVBoxLayout(preBox);
 
     QHBoxLayout* addDishRow = new QHBoxLayout();
@@ -219,7 +527,7 @@ QWidget* MainWindow::createBookingTab() {
     connect(remDishBtn, &QPushButton::clicked, this, &MainWindow::onRemoveSelectedPreorderItem);
     addDishRow->addWidget(remDishBtn);
 
-    QPushButton* clearPreBtn = new QPushButton("Очистить всё");
+    QPushButton* clearPreBtn = new QPushButton("Очистить");
     connect(clearPreBtn, &QPushButton::clicked, this, &MainWindow::onClearPreorder);
     addDishRow->addWidget(clearPreBtn);
 
@@ -231,7 +539,7 @@ QWidget* MainWindow::createBookingTab() {
     });
     preLayout->addWidget(preorderListWidget_);
 
-    preorderTotalLabel_ = new QLabel("Итого по предзаказу: 0 руб.");
+    preorderTotalLabel_ = new QLabel("Итого по предзаказу: 0.00 BYN");
     preorderTotalLabel_->setStyleSheet("font-weight: bold; color: #F5D76E;");
     preLayout->addWidget(preorderTotalLabel_);
 
@@ -248,14 +556,13 @@ QWidget* MainWindow::createBookingTab() {
 
     layout->addWidget(formBox, 2);
 
-    // Правая колонка: таблица броней и управление статусами Хостес
     QGroupBox* listBox = new QGroupBox("Журнал бронирований и посадки на выбранную дату");
     QVBoxLayout* listLayout = new QVBoxLayout(listBox);
 
     QHBoxLayout* searchRow = new QHBoxLayout();
     searchRow->addWidget(new QLabel("Быстрый поиск брони:"));
     reservationSearchEdit_ = new QLineEdit();
-    reservationSearchEdit_->setPlaceholderText("Введите код BK-..., имя гостя, телефон или комментарий...");
+    reservationSearchEdit_->setPlaceholderText("Код BK-..., имя гостя, телефон +375... или комментарий...");
     connect(reservationSearchEdit_, &QLineEdit::textChanged, this, &MainWindow::refreshReservationsAndWaitlist);
     searchRow->addWidget(reservationSearchEdit_, 1);
     listLayout->addLayout(searchRow);
@@ -295,7 +602,7 @@ QWidget* MainWindow::createBookingTab() {
     connect(btnComment, &QPushButton::clicked, this, &MainWindow::onEditReservationCommentClicked);
     actionRow2->addWidget(btnComment);
 
-    QPushButton* btnReceipt = new QPushButton("🧾 Показать квитанцию");
+    QPushButton* btnReceipt = new QPushButton("🧾 Показать чек / квитанцию (BYN)");
     connect(btnReceipt, &QPushButton::clicked, this, &MainWindow::onShowReceiptClicked);
     actionRow2->addWidget(btnReceipt);
 
@@ -305,9 +612,9 @@ QWidget* MainWindow::createBookingTab() {
 
     listLayout->addLayout(actionRow2);
 
-    listLayout->addWidget(new QLabel("Лист ожидания (Waitlist) — очередь гостей при полной посадке:"));
+    listLayout->addWidget(new QLabel("Лист ожидания (Waitlist) — очередь гостей:"));
     waitlistTable_ = new QTableWidget(0, 6);
-    waitlistTable_->setHorizontalHeaderLabels({"ID", "Гость", "Телефон", "Дата и час", "Персон", "Комментарий"});
+    waitlistTable_->setHorizontalHeaderLabels({"ID", "Гость", "Телефон (РБ)", "Дата и час", "Персон", "Комментарий"});
     waitlistTable_->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
     waitlistTable_->setSelectionBehavior(QAbstractItemView::SelectRows);
     waitlistTable_->setEditTriggers(QAbstractItemView::NoEditTriggers);
@@ -325,14 +632,14 @@ QWidget* MainWindow::createBookingTab() {
     listLayout->addLayout(wlActions);
 
     layout->addWidget(listBox, 3);
-    return tab;
+    return page;
 }
 
-QWidget* MainWindow::createRecommenderTab() {
-    QWidget* tab = new QWidget();
-    QHBoxLayout* layout = new QHBoxLayout(tab);
+QWidget* MainWindow::createRecommenderPage() {
+    QWidget* page = new QWidget();
+    QHBoxLayout* layout = new QHBoxLayout(page);
+    layout->setContentsMargins(0, 0, 0, 0);
 
-    // 1. Левая половина: Подбор идеального столика
     QGroupBox* tblBox = new QGroupBox("Умный подбор столика под ваш запрос");
     QVBoxLayout* tblLayout = new QVBoxLayout(tblBox);
 
@@ -351,7 +658,7 @@ QWidget* MainWindow::createRecommenderTab() {
     tForm->addRow("Предпочитаемая зона:", recZoneCombo_);
     tblLayout->addLayout(tForm);
 
-    recWindowCheck_ = new QCheckBox("Хочу столик у панорамного окна");
+    recWindowCheck_ = new QCheckBox("Хочу столик у панорамного окна (вид на Свислочь)");
     recWindowCheck_->setChecked(true);
     recQuietCheck_ = new QCheckBox("Тихая уединенная зона");
     recQuietCheck_->setChecked(true);
@@ -364,7 +671,7 @@ QWidget* MainWindow::createRecommenderTab() {
     tblLayout->addWidget(recSofaCheck_);
 
     QPushButton* runTblRecBtn = new QPushButton("🔍 Найти лучшие свободные столики");
-    runTblRecBtn->setStyleSheet("background-color: #D4AF37; color: #181A24; font-weight: bold; padding: 8px;");
+    runTblRecBtn->setStyleSheet("background-color: #D4AF37; color: #181A24; font-weight: bold; padding: 9px;");
     connect(runTblRecBtn, &QPushButton::clicked, this, &MainWindow::onRunTableRecommender);
     tblLayout->addWidget(runTblRecBtn);
 
@@ -378,16 +685,15 @@ QWidget* MainWindow::createRecommenderTab() {
 
     tblLayout->addWidget(new QLabel("Совет: дважды кликните по строке рекомендованного стола, чтобы перейти к его бронированию."));
 
-    // 2. Правая половина: Гастрономический сомелье (подбор сета блюд)
-    QGroupBox* menuBox = new QGroupBox("Персональный подбор гастрономического сета по меню");
+    QGroupBox* menuBox = new QGroupBox("Персональный подбор гастрономического сета (бюджет в BYN)");
     QVBoxLayout* menuLayout = new QVBoxLayout(menuBox);
 
     QFormLayout* mForm = new QFormLayout();
     recBudgetSpin_ = new QDoubleSpinBox();
-    recBudgetSpin_->setRange(500.0, 25000.0);
-    recBudgetSpin_->setSingleStep(100.0);
-    recBudgetSpin_->setValue(2600.0);
-    recBudgetSpin_->setSuffix(" руб.");
+    recBudgetSpin_->setRange(20.0, 600.0);
+    recBudgetSpin_->setSingleStep(5.0);
+    recBudgetSpin_->setValue(95.0);
+    recBudgetSpin_->setSuffix(" BYN");
     mForm->addRow("Бюджет на 1 гостя:", recBudgetSpin_);
 
     recDietCombo_ = new QComboBox();
@@ -407,8 +713,8 @@ QWidget* MainWindow::createRecommenderTab() {
     recNoSpicyCheck_->setChecked(true);
     menuLayout->addWidget(recNoSpicyCheck_);
 
-    QPushButton* runMenuRecBtn = new QPushButton("🍽 Сформировать персональные сеты блюд");
-    runMenuRecBtn->setStyleSheet("background-color: #2980B9; color: white; font-weight: bold; padding: 8px;");
+    QPushButton* runMenuRecBtn = new QPushButton("🍽 Сформировать персональные сеты блюд (BYN)");
+    runMenuRecBtn->setStyleSheet("background-color: #2980B9; color: white; font-weight: bold; padding: 9px;");
     connect(runMenuRecBtn, &QPushButton::clicked, this, &MainWindow::onRunMenuRecommender);
     menuLayout->addWidget(runMenuRecBtn);
 
@@ -416,20 +722,21 @@ QWidget* MainWindow::createRecommenderTab() {
     menuLayout->addWidget(recMenuSetsList_, 1);
 
     QPushButton* applySetBtn = new QPushButton("✓ Перенести выбранный сет в корзину предзаказа");
-    applySetBtn->setStyleSheet("background-color: #27AE60; color: white; font-weight: bold; padding: 8px;");
+    applySetBtn->setStyleSheet("background-color: #27AE60; color: white; font-weight: bold; padding: 9px;");
     connect(applySetBtn, &QPushButton::clicked, this, &MainWindow::onApplyRecommendedMenuSet);
     menuLayout->addWidget(applySetBtn);
 
     layout->addWidget(tblBox, 1);
     layout->addWidget(menuBox, 1);
-    return tab;
+    return page;
 }
 
-QWidget* MainWindow::createMenuTab() {
-    QWidget* tab = new QWidget();
-    QVBoxLayout* layout = new QVBoxLayout(tab);
+QWidget* MainWindow::createMenuPage() {
+    QWidget* page = new QWidget();
+    QVBoxLayout* layout = new QVBoxLayout(page);
+    layout->setContentsMargins(0, 0, 0, 0);
 
-    QGroupBox* filterBox = new QGroupBox("Фильтрация, поиск и управление меню ресторана (SQLite)");
+    QGroupBox* filterBox = new QGroupBox("Фильтрация, поиск и управление меню ресторана (цены в белорусских рублях BYN)");
     QHBoxLayout* fLayout = new QHBoxLayout(filterBox);
 
     fLayout->addWidget(new QLabel("Категория:"));
@@ -444,14 +751,15 @@ QWidget* MainWindow::createMenuTab() {
 
     fLayout->addWidget(new QLabel("Поиск:"));
     menuSearchEdit_ = new QLineEdit();
-    menuSearchEdit_->setPlaceholderText("Название или ингредиент...");
+    menuSearchEdit_->setPlaceholderText("Например: драники, палтус, боровики...");
     fLayout->addWidget(menuSearchEdit_, 1);
 
     fLayout->addWidget(new QLabel("Макс. цена:"));
     menuMaxPriceSpin_ = new QDoubleSpinBox();
-    menuMaxPriceSpin_->setRange(0.0, 15000.0);
-    menuMaxPriceSpin_->setSingleStep(100.0);
+    menuMaxPriceSpin_->setRange(0.0, 500.0);
+    menuMaxPriceSpin_->setSingleStep(5.0);
     menuMaxPriceSpin_->setValue(0.0);
+    menuMaxPriceSpin_->setSuffix(" BYN");
     menuMaxPriceSpin_->setSpecialValueText("Любая");
     fLayout->addWidget(menuMaxPriceSpin_);
 
@@ -477,18 +785,19 @@ QWidget* MainWindow::createMenuTab() {
 
     menuTableWidget_ = new QTableWidget(0, 8);
     menuTableWidget_->setHorizontalHeaderLabels(
-        {"ID", "Блюдо", "Категория", "Цена", "Вес и КБЖУ", "Подача", "Рейтинг ★", "Теги и состав"});
+        {"ID", "Блюдо", "Категория", "Цена (BYN)", "Вес и КБЖУ", "Подача", "Рейтинг ★", "Теги и состав"});
     menuTableWidget_->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
     menuTableWidget_->setSelectionBehavior(QAbstractItemView::SelectRows);
     menuTableWidget_->setEditTriggers(QAbstractItemView::NoEditTriggers);
     layout->addWidget(menuTableWidget_, 1);
 
-    return tab;
+    return page;
 }
 
-QWidget* MainWindow::createReviewsAndAnalyticsTab() {
-    QWidget* tab = new QWidget();
-    QHBoxLayout* layout = new QHBoxLayout(tab);
+QWidget* MainWindow::createReviewsAndAnalyticsPage() {
+    QWidget* page = new QWidget();
+    QHBoxLayout* layout = new QHBoxLayout(page);
+    layout->setContentsMargins(0, 0, 0, 0);
 
     // Левая часть: Отзывы и комментарии гостей
     QGroupBox* revBox = new QGroupBox("Комментарии, оценки столов/блюд и ответы управляющего");
@@ -565,39 +874,26 @@ QWidget* MainWindow::createReviewsAndAnalyticsTab() {
 
     revLayout->addWidget(addRevBox);
 
-    // Правая часть: Аналитическая панель управляющего
-    QGroupBox* statBox = new QGroupBox("Аналитика загрузки зала и выручки (SQLite)");
+    // Правая часть: Графическая аналитика на QPainter
+    QGroupBox* statBox = new QGroupBox("Визуальная аналитика загрузки и выручки (BYN)");
     QVBoxLayout* statLayout = new QVBoxLayout(statBox);
 
     analyticsSummaryLabel_ = new QLabel();
     analyticsSummaryLabel_->setWordWrap(true);
-    analyticsSummaryLabel_->setStyleSheet("font-size: 13px; background-color: #181A24; padding: 12px; border-radius: 6px;");
+    analyticsSummaryLabel_->setStyleSheet("font-size: 12px; background-color: #141620; color: #ECEFF4; padding: 10px; border-radius: 8px;");
     statLayout->addWidget(analyticsSummaryLabel_);
 
-    statLayout->addWidget(new QLabel("Почасовая загрузка столов (12:00 – 22:00):"));
-    QGridLayout* barsGrid = new QGridLayout();
-    hourlyBars_.clear();
-    for (int h = 12; h <= 22; ++h) {
-        int row = h - 12;
-        barsGrid->addWidget(new QLabel(QString("%1:00").arg(h, 2, 10, QChar('0'))), row, 0);
-        QProgressBar* bar = new QProgressBar();
-        bar->setRange(0, 100);
-        bar->setFormat("%p% столов занято");
-        barsGrid->addWidget(bar, row, 1);
-        hourlyBars_.push_back(bar);
-    }
-    statLayout->addLayout(barsGrid);
+    analyticsChartWidget_ = new AnalyticsChartWidget();
+    statLayout->addWidget(analyticsChartWidget_, 1);
 
     QPushButton* exportReportBtn = new QPushButton("💾 Экспортировать отчет за день в TXT-файл");
-    exportReportBtn->setStyleSheet("background-color: #2980B9; color: white; font-weight: bold; padding: 8px;");
+    exportReportBtn->setStyleSheet("background-color: #2980B9; color: white; font-weight: bold; padding: 9px;");
     connect(exportReportBtn, &QPushButton::clicked, this, &MainWindow::onExportAnalyticsReportClicked);
     statLayout->addWidget(exportReportBtn);
 
-    statLayout->addStretch(1);
-
     layout->addWidget(revBox, 3);
     layout->addWidget(statBox, 2);
-    return tab;
+    return page;
 }
 
 void MainWindow::reloadDishCombos() {
@@ -608,7 +904,7 @@ void MainWindow::reloadDishCombos() {
         preorderDishCombo_->blockSignals(true);
         preorderDishCombo_->clear();
         for (const auto& d : dishes) {
-            preorderDishCombo_->addItem(QString("%1 (%2 руб.)").arg(d.name).arg(d.price, 0, 'f', 0), d.id);
+            preorderDishCombo_->addItem(QString("%1 (%2 BYN)").arg(d.name).arg(d.price, 0, 'f', 2), d.id);
         }
         int idx = preorderDishCombo_->findData(curId);
         if (idx >= 0) preorderDishCombo_->setCurrentIndex(idx);
@@ -643,7 +939,12 @@ void MainWindow::reloadDishCombos() {
 }
 
 void MainWindow::onDateTimeFilterChanged() {
-    // Динамическое ограничение длительности визита, чтобы не выходить за 23:00 (CLOSE_HOUR)
+    if (timeSlider_ && timeSlider_->value() != hourSpin_->value()) {
+        timeSlider_->blockSignals(true);
+        timeSlider_->setValue(hourSpin_->value());
+        timeSlider_->blockSignals(false);
+    }
+
     int maxAllowedDuration = std::max(1, std::min(4, DatabaseManager::CLOSE_HOUR - hourSpin_->value()));
     durationSpin_->blockSignals(true);
     durationSpin_->setMaximum(maxAllowedDuration);
@@ -674,7 +975,7 @@ void MainWindow::refreshFloorMapAndCard() {
     QMap<int, int> freeHrsMap;
     QMap<int, QString> guestBadges = db_.getActiveGuestBadgeByTable(date, hour, dur);
     int freeCount = 0;
-    int seatedCount = 0;
+    int seatedTablesCount = 0;
 
     for (const auto& t : tables) {
         int st = db_.getTableOccupancyStatus(t.id, date, hour, dur);
@@ -682,18 +983,31 @@ void MainWindow::refreshFloorMapAndCard() {
         ratMap[t.id] = db_.getAverageTableRating(t.id);
         freeHrsMap[t.id] = db_.getFreeHoursFrom(t.id, date, hour);
         if (st == 0) ++freeCount;
-        if (st == 2) ++seatedCount;
+        if (st == 2) ++seatedTablesCount;
     }
 
-    floorMapWidget_->updateFloorData(tables, occMap, ratMap, guestBadges, freeHrsMap);
+    QMap<int, int> selHourly;
+    for (int h = 10; h <= 22; ++h) {
+        selHourly[h] = db_.getTableOccupancyStatus(currentTableId_, date, h, 1);
+    }
 
-    summaryBannerLabel_->setText(
-        QString("Свободно столов: %1 из %2   |   Сейчас за столами: %3   |   В очереди: %4   |   Рейтинг: ★ %5 / 5.0")
-        .arg(freeCount)
-        .arg(tables.size())
-        .arg(seatedCount)
-        .arg(db_.getWaitlist().size())
-        .arg(db_.getOverallRating(), 0, 'f', 2));
+    floorMapWidget_->updateFloorData(tables, occMap, ratMap, guestBadges, freeHrsMap, selHourly);
+
+    // Обновление 4 верхних KPI-карточек
+    double dayRevenue = 0.0;
+    int dayGuests = 0;
+    for (const auto& b : db_.getReservationsByDate(date)) {
+        if (b.status == "Cancelled") continue;
+        dayGuests += b.partySize;
+        double pre = db_.calculatePreorderTotal(b.preorder, b.bookingType == "Online");
+        TableInfo ti = db_.getTableById(b.tableId);
+        dayRevenue += std::max(pre, ti.minDeposit);
+    }
+
+    kpiFreeTablesLabel_->setText(QString("%1 из %2 столов (%3:00)").arg(freeCount).arg(tables.size()).arg(hour, 2, 10, QChar('0')));
+    kpiSeatedGuestsLabel_->setText(QString("Занято столов: %1 | Гостей за день: %2").arg(seatedTablesCount).arg(dayGuests));
+    kpiWaitlistLabel_->setText(QString("В очереди: %1 групп").arg(db_.getWaitlist().size()));
+    kpiRevenueRatingLabel_->setText(QString("%1 BYN  •  ★ %2 / 5.0").arg(dayRevenue, 0, 'f', 2).arg(db_.getOverallRating(), 0, 'f', 2));
 
     onTableSelectedOnMap(currentTableId_);
 }
@@ -702,6 +1016,13 @@ void MainWindow::onTableSelectedOnMap(int tableId) {
     currentTableId_ = tableId;
     TableInfo t = db_.getTableById(tableId);
     if (t.id == 0) return;
+
+    QString date = activeDateString();
+    QMap<int, int> selHourly;
+    for (int h = 10; h <= 22; ++h) {
+        selHourly[h] = db_.getTableOccupancyStatus(currentTableId_, date, h, 1);
+    }
+    floorMapWidget_->update();
 
     cardTitleLabel_->setText(QString("Столик #%1 [%2] — до %3 персон").arg(t.id).arg(t.code).arg(t.capacity));
     cardZoneLabel_->setText(QString("<b>Зона:</b> %1 (координаты X=%2, Y=%3)<br><b>Описание:</b> %4")
@@ -716,7 +1037,7 @@ void MainWindow::onTableSelectedOnMap(int tableId) {
     cardFeaturesLabel_->setText("<b>Оснащение:</b> " + feats.join(", "));
 
     cardDepositLabel_->setText(t.minDeposit > 0.0
-        ? QString("<b>Минимальный депозит:</b> %1 руб.").arg(t.minDeposit, 0, 'f', 0)
+        ? QString("<b>Минимальный депозит:</b> %1 BYN").arg(t.minDeposit, 0, 'f', 2)
         : "<b>Депозит:</b> Без обязательного депозита");
 
     double avgR = db_.getAverageTableRating(t.id);
@@ -724,7 +1045,6 @@ void MainWindow::onTableSelectedOnMap(int tableId) {
         ? QString("Рейтинг стола по отзывам: ★ %1 / 5.0").arg(avgR, 0, 'f', 1)
         : "Рейтинг стола: пока нет оценок");
 
-    QString date = activeDateString();
     QString sched = QString("Почасовой график на %1:\n").arg(date);
     for (int h = 10; h < 23; ++h) {
         int st = db_.getTableOccupancyStatus(t.id, date, h, 1);
@@ -747,15 +1067,15 @@ void MainWindow::onTableSelectedOnMap(int tableId) {
 void MainWindow::onQuickBookFromMap() {
     int idx = tableSelectCombo_->findData(currentTableId_);
     if (idx >= 0) tableSelectCombo_->setCurrentIndex(idx);
-    bookingTypeCombo_->setCurrentIndex(0); // Online
-    mainTabs_->setCurrentIndex(1);
+    bookingTypeCombo_->setCurrentIndex(0);
+    switchToPage(1);
 }
 
 void MainWindow::onQuickWalkInFromMap() {
     int idx = tableSelectCombo_->findData(currentTableId_);
     if (idx >= 0) tableSelectCombo_->setCurrentIndex(idx);
-    bookingTypeCombo_->setCurrentIndex(1); // WalkIn
-    mainTabs_->setCurrentIndex(1);
+    bookingTypeCombo_->setCurrentIndex(1);
+    switchToPage(1);
 }
 
 void MainWindow::onAddDishToPreorder() {
@@ -791,15 +1111,15 @@ void MainWindow::refreshPreorderWidget() {
     preorderListWidget_->clear();
     for (const auto& item : currentPreorder_) {
         preorderListWidget_->addItem(
-            QString("%1 x%2 = %3 руб. (двойной клик — удалить)")
-            .arg(item.dishName).arg(item.quantity).arg(item.unitPrice * item.quantity, 0, 'f', 0));
+            QString("%1 x%2 = %3 BYN (двойной клик — удалить)")
+            .arg(item.dishName).arg(item.quantity).arg(item.unitPrice * item.quantity, 0, 'f', 2));
     }
     bool isOnline = (bookingTypeCombo_->currentData().toString() == "Online");
     double total = db_.calculatePreorderTotal(currentPreorder_, isOnline);
     if (isOnline && !currentPreorder_.empty()) {
-        preorderTotalLabel_->setText(QString("Итого со скидкой 5% (онлайн-предзаказ): %1 руб.").arg(total, 0, 'f', 0));
+        preorderTotalLabel_->setText(QString("Итого со скидкой 5% (онлайн-предзаказ): %1 BYN").arg(total, 0, 'f', 2));
     } else {
-        preorderTotalLabel_->setText(QString("Итого по предзаказу: %1 руб.").arg(total, 0, 'f', 0));
+        preorderTotalLabel_->setText(QString("Итого по предзаказу: %1 BYN").arg(total, 0, 'f', 2));
     }
 }
 
@@ -828,7 +1148,7 @@ void MainWindow::onCreateReservationClicked() {
     int newId = db_.createReservation(res, code, &errMsg);
     if (newId == 0) {
         QMessageBox::warning(this, "Невозможно оформить бронь",
-            errMsg + "\n\nВоспользуйтесь вкладкой «Рекомендации под твой запрос» или добавьте гостя в Лист ожидания.");
+            errMsg + "\n\nВоспользуйтесь разделом «Рекомендации» или добавьте гостя в Лист ожидания.");
         return;
     }
 
@@ -959,7 +1279,7 @@ void MainWindow::onShowReceiptClicked() {
         QMessageBox::information(this, "Выбор брони", "Выберите бронь в таблице для просмотра квитанции.");
         return;
     }
-    QMessageBox::information(this, "Квитанция бронирования", db_.formatReservationReceipt(id));
+    QMessageBox::information(this, "Квитанция бронирования (BYN)", db_.formatReservationReceipt(id));
 }
 
 void MainWindow::onExportReceiptClicked() {
@@ -1097,7 +1417,7 @@ void MainWindow::onSelectRecommendedTable(int row, int /*col*/) {
     if (idx >= 0) tableSelectCombo_->setCurrentIndex(idx);
     partySizeSpin_->setValue(recPartySpin_->value());
     occasionCombo_->setCurrentText(recOccasionCombo_->currentText());
-    mainTabs_->setCurrentIndex(1);
+    switchToPage(1);
 }
 
 void MainWindow::onRunMenuRecommender() {
@@ -1110,11 +1430,11 @@ void MainWindow::onRunMenuRecommender() {
     lastMenuSets_ = db_.recommendMenuSets(pref);
     recMenuSetsList_->clear();
     for (const auto& s : lastMenuSets_) {
-        QString text = QString("%1 — %2 руб. (%3 ккал | подача ~%4 мин)\n   %5\n")
-                       .arg(s.title).arg(s.totalPrice, 0, 'f', 0).arg(s.totalCalories).arg(s.maxPrepTimeMin).arg(s.explanation);
+        QString text = QString("%1 — %2 BYN (%3 ккал | подача ~%4 мин)\n   %5\n")
+                       .arg(s.title).arg(s.totalPrice, 0, 'f', 2).arg(s.totalCalories).arg(s.maxPrepTimeMin).arg(s.explanation);
         for (const auto& d : s.dishes) {
-            text += QString("   • [%1] %2 — %3 руб. (%4 ккал)\n")
-                    .arg(d.category).arg(d.name).arg(d.price, 0, 'f', 0).arg(d.calories);
+            text += QString("   • [%1] %2 — %3 BYN (%4 ккал)\n")
+                    .arg(d.category).arg(d.name).arg(d.price, 0, 'f', 2).arg(d.calories);
         }
         recMenuSetsList_->addItem(text.trimmed());
     }
@@ -1132,7 +1452,7 @@ void MainWindow::onApplyRecommendedMenuSet() {
         currentPreorder_.push_back({d.id, d.name, d.price, 1});
     }
     refreshPreorderWidget();
-    mainTabs_->setCurrentIndex(1);
+    switchToPage(1);
 }
 
 void MainWindow::onFilterMenuChanged() {
@@ -1154,7 +1474,7 @@ void MainWindow::refreshMenuTable() {
         menuTableWidget_->setItem(row, 0, new QTableWidgetItem(QString::number(d.id)));
         menuTableWidget_->setItem(row, 1, new QTableWidgetItem(d.name));
         menuTableWidget_->setItem(row, 2, new QTableWidgetItem(d.category));
-        menuTableWidget_->setItem(row, 3, new QTableWidgetItem(QString("%1 руб.").arg(d.price, 0, 'f', 0)));
+        menuTableWidget_->setItem(row, 3, new QTableWidgetItem(QString("%1 BYN").arg(d.price, 0, 'f', 2)));
         menuTableWidget_->setItem(row, 4, new QTableWidgetItem(QString("%1 г | %2 ккал").arg(d.weightGrams).arg(d.calories)));
         menuTableWidget_->setItem(row, 5, new QTableWidgetItem(QString("~%1 мин").arg(d.prepTimeMin)));
         menuTableWidget_->setItem(row, 6, new QTableWidgetItem(avgR > 0.0 ? QString("★ %1").arg(avgR, 0, 'f', 1) : "Новинка"));
@@ -1171,7 +1491,7 @@ void MainWindow::onAddNewDishClicked() {
                                         {"Закуски", "Супы", "Горячее", "Десерты", "Напитки"}, 2, false, &ok);
     if (!ok) return;
 
-    double price = QInputDialog::getDouble(this, "Цена", "Цена (руб.):", 950.0, 50.0, 25000.0, 0, &ok);
+    double price = QInputDialog::getDouble(this, "Цена (BYN)", "Цена в белорусских рублях (BYN):", 32.0, 2.0, 1000.0, 2, &ok);
     if (!ok) return;
 
     int calories = QInputDialog::getInt(this, "Калорийность", "Калории (ккал):", 380, 10, 3000, 10, &ok);
@@ -1208,9 +1528,9 @@ void MainWindow::onEditDishClicked() {
     if (d.id == 0) return;
 
     bool ok = false;
-    double newPrice = QInputDialog::getDouble(this, "Изменить цену",
-                                              QString("Новая цена для «%1» (руб.):").arg(d.name),
-                                              d.price, 50.0, 25000.0, 0, &ok);
+    double newPrice = QInputDialog::getDouble(this, "Изменить цену (BYN)",
+                                              QString("Новая цена для «%1» (BYN):").arg(d.name),
+                                              d.price, 2.0, 1000.0, 2, &ok);
     if (!ok) return;
 
     QString newDesc = QInputDialog::getText(this, "Изменить описание", "Состав и описание:",
@@ -1268,7 +1588,7 @@ void MainWindow::onReplyToReviewClicked() {
     int revId = reviewsTable_->item(items.first()->row(), 0)->text().toInt();
     bool ok = false;
     QString reply = QInputDialog::getText(this, "Ответ ресторана", "Введите ответ управляющего на отзыв:",
-                                          QLineEdit::Normal, "Благодарим за ваш отзыв! Ждем вас снова.", &ok);
+                                          QLineEdit::Normal, "Благодарим за ваш отзыв! Ждем вас снова в Минске.", &ok);
     if (ok && !reply.trimmed().isEmpty()) {
         db_.addManagerReply(revId, reply.trimmed());
         refreshReviewsAndAnalytics();
@@ -1341,29 +1661,23 @@ void MainWindow::refreshReviewsAndAnalytics() {
 
     auto allRevs = db_.getAllReviews();
     analyticsSummaryLabel_->setText(
-        QString("<b>Сводка за %1:</b><br>"
+        QString("<b>Сводка за %1 (Республика Беларусь • BYN):</b><br>"
                 "• Активных записей: <b>%2</b> (Онлайн: %3 | В ресторане Walk-in: %4)<br>"
                 "• Ожидаемое число гостей: <b>%5 чел.</b><br>"
-                "• Выручка по предзаказам и депозитам: <b>%6 руб.</b><br>"
-                "• Средний рейтинг по базе SQLite: <b>★ %7 / 5.0</b> (всего отзывов: %8)")
+                "• Выручка по предзаказам и депозитам: <b>%6 BYN</b><br>"
+                "• Средний рейтинг ресторана: <b>★ %7 / 5.0</b> (всего отзывов: %8)")
         .arg(date)
         .arg(onlineCnt + walkInCnt).arg(onlineCnt).arg(walkInCnt)
         .arg(totalGuests)
-        .arg(revenue, 0, 'f', 0)
+        .arg(revenue, 0, 'f', 2)
         .arg(db_.getOverallRating(), 0, 'f', 2)
         .arg(allRevs.size()));
 
-    auto allTables = db_.getAllTables();
-    int totalTbls = std::max(1, static_cast<int>(allTables.size()));
-    for (int h = 12; h <= 22; ++h) {
-        int busy = 0;
-        for (const auto& t : allTables) {
-            if (db_.getTableOccupancyStatus(t.id, date, h, 1) != 0) ++busy;
-        }
-        int idx = h - 12;
-        if (idx >= 0 && idx < static_cast<int>(hourlyBars_.size())) {
-            hourlyBars_[idx]->setValue(busy * 100 / totalTbls);
-        }
+    if (analyticsChartWidget_) {
+        analyticsChartWidget_->updateCharts(
+            db_.getHourlyOccupiedTablesCount(date),
+            static_cast<int>(db_.getAllTables().size()),
+            db_.getRevenueByZone(date));
     }
 }
 

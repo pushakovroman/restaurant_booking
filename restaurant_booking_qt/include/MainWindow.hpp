@@ -3,21 +3,24 @@
 
 #include "DatabaseManager.hpp"
 #include "FloorMapWidget.hpp"
+#include "AnalyticsChartWidget.hpp"
 #include <QMainWindow>
-#include <QTabWidget>
+#include <QStackedWidget>
 #include <QDateEdit>
 #include <QSpinBox>
 #include <QDoubleSpinBox>
+#include <QSlider>
 #include <QComboBox>
 #include <QLineEdit>
 #include <QPlainTextEdit>
 #include <QCheckBox>
 #include <QTableWidget>
+#include <QTableWidgetItem>
 #include <QListWidget>
 #include <QListWidgetItem>
-#include <QTableWidgetItem>
 #include <QLabel>
-#include <QProgressBar>
+#include <QPushButton>
+#include <QFrame>
 #include <vector>
 
 namespace Restaurant {
@@ -28,8 +31,13 @@ class MainWindow : public QMainWindow {
 public:
     explicit MainWindow(DatabaseManager& db, QWidget* parent = nullptr);
 
+    static QString darkLuxuryStyleSheet();
+    static QString lightCafeStyleSheet();
+
 private slots:
     void onDateTimeFilterChanged();
+    void onTimeSliderChanged(int value);
+    void onToggleThemeClicked();
     void onTableSelectedOnMap(int tableId);
     void onQuickBookFromMap();
     void onQuickWalkInFromMap();
@@ -70,20 +78,29 @@ private slots:
 
 private:
     DatabaseManager& db_;
+    bool isDarkTheme_ = true;
     int currentTableId_ = 1;
     std::vector<PreorderItem> currentPreorder_;
     std::vector<TableRecommendation> lastTableRecs_;
     std::vector<MenuSetRecommendation> lastMenuSets_;
 
-    // Верхняя панель управления датой и временем
+    // Левая боковая панель навигации (Sidebar) и стек экранов
+    QListWidget* sidebarNav_ = nullptr;
+    QStackedWidget* pagesStack_ = nullptr;
+    QPushButton* themeToggleBtn_ = nullptr;
+
+    // Верхние KPI-карточки и панель «Машины времени»
+    QLabel* kpiFreeTablesLabel_ = nullptr;
+    QLabel* kpiSeatedGuestsLabel_ = nullptr;
+    QLabel* kpiWaitlistLabel_ = nullptr;
+    QLabel* kpiRevenueRatingLabel_ = nullptr;
+
     QDateEdit* dateEdit_ = nullptr;
     QSpinBox* hourSpin_ = nullptr;
+    QSlider* timeSlider_ = nullptr;
     QSpinBox* durationSpin_ = nullptr;
-    QLabel* summaryBannerLabel_ = nullptr;
 
-    QTabWidget* mainTabs_ = nullptr;
-
-    // 1. Вкладка 2D-карты зала
+    // 1. Экран 2D-карты зала
     FloorMapWidget* floorMapWidget_ = nullptr;
     QLabel* cardTitleLabel_ = nullptr;
     QLabel* cardZoneLabel_ = nullptr;
@@ -93,7 +110,7 @@ private:
     QLabel* cardScheduleLabel_ = nullptr;
     QListWidget* cardReviewsList_ = nullptr;
 
-    // 2. Вкладка Онлайн-записи и Хостес
+    // 2. Экран Онлайн-записи и Хостес
     QComboBox* bookingTypeCombo_ = nullptr;
     QLineEdit* guestNameEdit_ = nullptr;
     QLineEdit* guestPhoneEdit_ = nullptr;
@@ -109,7 +126,7 @@ private:
     QTableWidget* reservationsTable_ = nullptr;
     QTableWidget* waitlistTable_ = nullptr;
 
-    // 3. Вкладка Умных рекомендаций
+    // 3. Экран Умных рекомендаций
     QSpinBox* recPartySpin_ = nullptr;
     QComboBox* recOccasionCombo_ = nullptr;
     QComboBox* recZoneCombo_ = nullptr;
@@ -125,14 +142,14 @@ private:
     QSpinBox* recMaxCalSpin_ = nullptr;
     QListWidget* recMenuSetsList_ = nullptr;
 
-    // 4. Вкладка Меню
+    // 4. Экран Меню (BYN)
     QComboBox* menuCategoryFilter_ = nullptr;
     QComboBox* menuTagFilter_ = nullptr;
     QLineEdit* menuSearchEdit_ = nullptr;
     QDoubleSpinBox* menuMaxPriceSpin_ = nullptr;
     QTableWidget* menuTableWidget_ = nullptr;
 
-    // 5. Вкладка Отзывов и Аналитики
+    // 5. Экран Отзывов и Аналитики
     QComboBox* revFilterTableCombo_ = nullptr;
     QComboBox* revFilterDishCombo_ = nullptr;
     QTableWidget* reviewsTable_ = nullptr;
@@ -142,15 +159,17 @@ private:
     QComboBox* revDishCombo_ = nullptr;
     QLineEdit* revCommentEdit_ = nullptr;
     QLabel* analyticsSummaryLabel_ = nullptr;
-    std::vector<QProgressBar*> hourlyBars_;
+    AnalyticsChartWidget* analyticsChartWidget_ = nullptr;
 
     void setupUi();
-    QWidget* createFloorMapTab();
-    QWidget* createBookingTab();
-    QWidget* createRecommenderTab();
-    QWidget* createMenuTab();
-    QWidget* createReviewsAndAnalyticsTab();
+    QFrame* createKpiCard(const QString& title, QLabel*& outValueLabel, const QString& accentColor);
+    QWidget* createFloorMapPage();
+    QWidget* createBookingPage();
+    QWidget* createRecommenderPage();
+    QWidget* createMenuPage();
+    QWidget* createReviewsAndAnalyticsPage();
 
+    void switchToPage(int index);
     void reloadDishCombos();
     void refreshAllViews();
     void refreshFloorMapAndCard();
