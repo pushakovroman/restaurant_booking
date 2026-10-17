@@ -1,3 +1,4 @@
+#include <QListWidgetItem>
 #include "MainWindow.hpp"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
