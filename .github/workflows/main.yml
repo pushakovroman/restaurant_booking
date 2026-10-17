@@ -5,6 +5,9 @@ on:
     branches: [ "**" ]
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build-windows:
     runs-on: windows-latest
@@ -24,33 +27,39 @@ jobs:
       - name: Build Project and Deploy
         shell: pwsh
         run: |
-          # 1. Находим папку с CMakeLists.txt
-          $cmakeItem = Get-ChildItem -Filter "CMakeLists.txt" -Recurse | Select-Object -First 1
+          # 1. Находим CMakeLists.txt в репозитории
+          $cmakeItem = Get-ChildItem -Path $env:GITHUB_WORKSPACE -Filter "CMakeLists.txt" -Recurse | Select-Object -First 1
           if (-not $cmakeItem) {
             Write-Error "CMakeLists.txt не найден!"
             exit 1
           }
-          cd $cmakeItem.DirectoryName
+          $projectDir = $cmakeItem.DirectoryName
 
           # 2. Компилируем проект
-          cmake -B build -DCMAKE_BUILD_TYPE=Release
-          cmake --build build --config Release
+          cmake -S $projectDir -B "$projectDir/build" -DCMAKE_BUILD_TYPE=Release
+          cmake --build "$projectDir/build" --config Release
 
-          # 3. Создаем папку для готового релиза в корне репозитория
+          # 3. Создаем папку release_dist в корне репозитория
           $outDir = "$env:GITHUB_WORKSPACE/release_dist"
           New-Item -ItemType Directory -Force -Path $outDir
 
-          # 4. Копируем исполняемый .exe
-          $exeItem = Get-ChildItem -Path "build" -Filter "RestaurantBookingApp.exe" -Recurse | Select-Object -First 1
-          Copy-Item $exeItem.FullName -Destination $outDir
+          # 4. Ищем скомпилированный .exe во всем репозитории
+          $exeItem = Get-ChildItem -Path $env:GITHUB_WORKSPACE -Filter "RestaurantBookingApp.exe" -Recurse | Select-Object -First 1
+          if (-not $exeItem) {
+            Write-Error "RestaurantBookingApp.exe не найден после сборки!"
+            exit 1
+          }
+          Write-Host "Найден исполняемый файл: $($exeItem.FullName)"
+          Copy-Item -Path $exeItem.FullName -Destination $outDir
 
-          # 5. Копируем базу данных SQLite
-          $dataItem = Get-ChildItem -Directory -Filter "data" -Recurse | Select-Object -First 1
+          # 5. Копируем папку с базой данных SQLite
+          $dataItem = Get-ChildItem -Path $env:GITHUB_WORKSPACE -Directory -Filter "data" -Recurse | Select-Object -First 1
           if ($dataItem) {
-            Copy-Item -Recurse -Force $dataItem.FullName -Destination "$outDir/data"
+            Write-Host "Найдена папка с базой данных: $($dataItem.FullName)"
+            Copy-Item -Recurse -Force -Path $dataItem.FullName -Destination "$outDir/data"
           }
 
-          # 6. Копируем все необходимые dll-библиотеки Qt и плагины
+          # 6. Копируем все необходимые dll-библиотеки Qt и плагины SQLite
           windeployqt --release --no-translations --no-system-d3d-compiler --no-opengl-sw "$outDir/RestaurantBookingApp.exe"
 
       - name: Upload Windows EXE
