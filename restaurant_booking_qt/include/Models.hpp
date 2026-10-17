@@ -32,6 +32,7 @@ struct DishInfo {
     int prepTimeMin = 15;
     QStringList tags;       // "вегетарианское", "без глютена", "морепродукты", "хит шефа", "легкое", "острое"
     QString description;
+    QStringList allergens;  // см. allergenVocabulary(): "глютен", "молоко", "орехи", ...
 };
 
 struct PreorderItem {
@@ -55,6 +56,7 @@ struct ReservationInfo {
     QString status;         // "Confirmed", "Seated", "Completed", "Cancelled"
     QString occasion;       // "Свидание", "Деловая встреча", "День рождения", "Семейный ужин", "Обычный визит"
     QString comment;
+    double depositPaid = 0.0;   // внесённый депозит (для столов с min_deposit > 0)
     std::vector<PreorderItem> preorder;
 };
 
@@ -81,7 +83,7 @@ struct WaitlistInfo {
 
 struct TablePreference {
     int partySize = 2;
-    QString visitDate = "2026-10-16";
+    QString visitDate;      // "YYYY-MM-DD", заполняется вызывающим кодом
     int startHour = 19;
     int durationHours = 2;
     QString occasion = "Свидание";
@@ -112,6 +114,49 @@ struct MenuSetRecommendation {
     int totalCalories = 0;
     QString explanation;
 };
+
+// Результат попытки создать бронь: вместо безликого «0» вызывающий код получает причину отказа
+enum class ReservationError {
+    None,
+    InvalidGuestName,
+    InvalidPhone,
+    InvalidPartySize,
+    InvalidDate,
+    InvalidTime,
+    PastDateTime,
+    WalkInNotToday,
+    InvalidField,
+    TableNotFound,
+    CapacityExceeded,
+    SlotTaken,
+    DepositRequired,
+    InvalidPreorder,
+    DatabaseError
+};
+
+struct ReservationResult {
+    bool ok = false;
+    int id = 0;
+    QString bookingCode;
+    ReservationError error = ReservationError::None;
+    QString message;        // готовое сообщение для пользователя
+};
+
+// Человекочитаемое название статуса брони (в БД хранятся английские коды)
+inline QString reservationStatusLabel(const QString& status) {
+    if (status == QLatin1String("Confirmed")) return QStringLiteral("Подтверждена");
+    if (status == QLatin1String("Seated"))    return QStringLiteral("Гости за столом");
+    if (status == QLatin1String("Completed")) return QStringLiteral("Завершена");
+    if (status == QLatin1String("Cancelled")) return QStringLiteral("Отменена");
+    return status;
+}
+
+// Допустимые значения аллергенов у блюд (хранятся в dishes.allergens через запятую)
+inline QStringList allergenVocabulary() {
+    return {QStringLiteral("глютен"), QStringLiteral("молоко"), QStringLiteral("яйца"),
+            QStringLiteral("орехи"), QStringLiteral("рыба"), QStringLiteral("ракообразные"),
+            QStringLiteral("моллюски"), QStringLiteral("соя"), QStringLiteral("кунжут")};
+}
 
 } // namespace Restaurant
 

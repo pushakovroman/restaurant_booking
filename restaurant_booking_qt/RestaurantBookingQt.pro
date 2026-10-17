@@ -15,6 +15,7 @@ INCLUDEPATH += include
 HEADERS += \
     include/Models.hpp \
     include/DatabaseManager.hpp \
+    include/SchemaSql.hpp \
     include/FloorMapWidget.hpp \
     include/MainWindow.hpp
 

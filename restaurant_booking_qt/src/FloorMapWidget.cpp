@@ -3,6 +3,8 @@
 #include <QPainterPath>
 #include <QMouseEvent>
 #include <QToolTip>
+#include <QEvent>
+#include <algorithm>
 
 namespace Restaurant {
 
@@ -212,19 +214,34 @@ void FloorMapWidget::mouseMoveEvent(QMouseEvent* event) {
     if (found != hoveredTableId_) {
         hoveredTableId_ = found;
         update();
-    }
-    if (found > 0) {
-        for (const auto& t : tables_) {
-            if (t.id == found) {
-                QString tip = QString("<b>Столик #%1 [%2]</b> — %3<br>"
-                                      "Вместимость: до %4 чел.<br>%5")
-                              .arg(t.id).arg(t.code).arg(t.zone).arg(t.capacity).arg(t.description);
-                QToolTip::showText(event->globalPos(), tip, this);
-                break;
+        // Подсказка показывается один раз при наведении на стол, а не перерисовывается на каждое движение мыши
+        if (found > 0) {
+            for (const auto& t : tables_) {
+                if (t.id == found) {
+                    QString tip = QString("<b>Столик #%1 [%2]</b> — %3<br>"
+                                          "Вместимость: до %4 чел.<br>%5")
+                                  .arg(t.id).arg(t.code).arg(t.zone).arg(t.capacity).arg(t.description);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+                    QToolTip::showText(event->globalPosition().toPoint(), tip, this);
+#else
+                    QToolTip::showText(event->globalPos(), tip, this);
+#endif
+                    break;
+                }
             }
+        } else {
+            QToolTip::hideText();
         }
     }
     QWidget::mouseMoveEvent(event);
+}
+
+void FloorMapWidget::leaveEvent(QEvent* event) {
+    if (hoveredTableId_ != 0) {
+        hoveredTableId_ = 0;
+        update();
+    }
+    QWidget::leaveEvent(event);
 }
 
 } // namespace Restaurant

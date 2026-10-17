@@ -3,6 +3,10 @@
 #include <QApplication>
 #include <QCoreApplication>
 #include <QDir>
+#include <QFile>
+#include <QFileInfo>
+#include <QMessageBox>
+#include <QStandardPaths>
 #include <QtPlugin>
 
 #ifdef QT_STATIC_BUILD
@@ -93,19 +97,49 @@ static QString restaurantStyleSheet() {
     )";
 }
 
+// Где хранить базу данных. По умолчанию — папка data рядом с программой. Если туда нельзя писать
+// (например, программа установлена в Program Files), используем папку данных пользователя.
+static QString resolveDatabasePath() {
+    const QString bundledPath = QCoreApplication::applicationDirPath() + "/data/restaurant.db";
+    QString sourcePath = bundledPath;
+    if (!QFileInfo::exists(sourcePath) && QFileInfo::exists("data/restaurant.db")) {
+        sourcePath = QFileInfo("data/restaurant.db").absoluteFilePath();
+    }
+
+    const QFileInfo dbInfo(sourcePath);
+    const bool existsAndWritable = dbInfo.exists() && dbInfo.isWritable();
+    const bool canCreateHere = !dbInfo.exists() && QFileInfo(dbInfo.absolutePath()).isWritable();
+    if (existsAndWritable || canCreateHere) {
+        return sourcePath;
+    }
+
+    const QString userDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    QDir().mkpath(userDir);
+    const QString userPath = userDir + "/restaurant.db";
+    if (!QFileInfo::exists(userPath) && dbInfo.exists()) {
+        if (QFile::copy(sourcePath, userPath)) {
+            QFile::setPermissions(userPath, QFileDevice::ReadOwner | QFileDevice::WriteOwner);
+        }
+    }
+    return userPath;
+}
+
 int main(int argc, char* argv[]) {
     QApplication app(argc, argv);
     app.setApplicationName("Aura Gastronomy Booking System");
     app.setOrganizationName("UniversityLab");
     app.setStyleSheet(restaurantStyleSheet());
 
-    QString dbPath = QCoreApplication::applicationDirPath() + "/data/restaurant.db";
-    if (!QFileInfo::exists(dbPath) && QFileInfo::exists("data/restaurant.db")) {
-        dbPath = "data/restaurant.db";
-    }
+    const QString dbPath = resolveDatabasePath();
 
     Restaurant::DatabaseManager db;
-    db.openDatabase(dbPath);
+    if (!db.openDatabase(dbPath)) {
+        QMessageBox::critical(nullptr, "Ошибка базы данных",
+            QString("Не удалось открыть или подготовить базу данных:\n%1\n\nПричина: %2\n\n"
+                    "Проверьте, что в папке есть права на запись и что рядом с программой лежит драйвер "
+                    "SQLite (папка sqldrivers).").arg(dbPath, db.lastError()));
+        return 1;
+    }
 
     Restaurant::MainWindow window(db);
     window.show();

@@ -10,6 +10,12 @@
 #include <QInputDialog>
 #include <QDate>
 #include <QSplitter>
+#include <QSignalBlocker>
+#include <QDialog>
+#include <QDialogButtonBox>
+#include <QColor>
+#include <QBrush>
+#include <algorithm>
 
 namespace Restaurant {
 
@@ -17,8 +23,13 @@ MainWindow::MainWindow(DatabaseManager& db, QWidget* parent)
     : QMainWindow(parent), db_(db) {
     setWindowTitle("Система бронирования в ресторане «Aura Gastronomy» — Qt GUI + SQLite");
     resize(1340, 840);
+
+    int capacity = 0;
+    for (const auto& t : db_.getAllTables()) capacity = std::max(capacity, t.capacity);
+    if (capacity > 0) maxTableCapacity_ = capacity;
+
     setupUi();
-    refreshAllViews();
+    onDateTimeFilterChanged();
     onRunTableRecommender();
     onRunMenuRecommender();
 }
@@ -38,7 +49,7 @@ void MainWindow::setupUi() {
     QHBoxLayout* topLayout = new QHBoxLayout(topBar);
 
     topLayout->addWidget(new QLabel("Дата визита:"));
-    dateEdit_ = new QDateEdit(QDate(2026, 10, 16));
+    dateEdit_ = new QDateEdit(QDate::currentDate());
     dateEdit_->setCalendarPopup(true);
     dateEdit_->setDisplayFormat("yyyy-MM-dd");
     topLayout->addWidget(dateEdit_);
@@ -84,6 +95,8 @@ void MainWindow::setupUi() {
 
     rootLayout->addWidget(mainTabs_, 1);
     setCentralWidget(central);
+
+    reloadDishCombos();
 }
 
 QWidget* MainWindow::createFloorMapTab() {
@@ -157,14 +170,18 @@ QWidget* MainWindow::createBookingTab() {
             this, &MainWindow::refreshPreorderWidget);
     fields->addRow("Режим записи:", bookingTypeCombo_);
 
-    guestNameEdit_ = new QLineEdit("Анна Морозова");
+    guestNameEdit_ = new QLineEdit();
+    guestNameEdit_->setPlaceholderText("Фамилия Имя");
+    guestNameEdit_->setMaxLength(80);
     fields->addRow("Имя гостя:", guestNameEdit_);
 
-    guestPhoneEdit_ = new QLineEdit("+7 (915) 222-33-44");
+    guestPhoneEdit_ = new QLineEdit();
+    guestPhoneEdit_->setPlaceholderText("+375 (29) 123-45-67");
+    guestPhoneEdit_->setMaxLength(25);
     fields->addRow("Телефон:", guestPhoneEdit_);
 
     partySizeSpin_ = new QSpinBox();
-    partySizeSpin_->setRange(1, 12);
+    partySizeSpin_->setRange(1, maxTableCapacity_);
     partySizeSpin_->setValue(2);
     fields->addRow("Количество гостей:", partySizeSpin_);
 
@@ -194,9 +211,6 @@ QWidget* MainWindow::createBookingTab() {
 
     QHBoxLayout* addDishRow = new QHBoxLayout();
     preorderDishCombo_ = new QComboBox();
-    for (const auto& d : db_.getAllDishes()) {
-        preorderDishCombo_->addItem(QString("%1 (%2 руб.)").arg(d.name).arg(d.price, 0, 'f', 0), d.id);
-    }
     addDishRow->addWidget(preorderDishCombo_, 1);
 
     preorderQtySpin_ = new QSpinBox();
@@ -238,9 +252,9 @@ QWidget* MainWindow::createBookingTab() {
     QGroupBox* listBox = new QGroupBox("Журнал бронирований и посадки на выбранную дату");
     QVBoxLayout* listLayout = new QVBoxLayout(listBox);
 
-    reservationsTable_ = new QTableWidget(0, 8);
+    reservationsTable_ = new QTableWidget(0, 9);
     reservationsTable_->setHorizontalHeaderLabels(
-        {"ID", "Код", "Время", "Стол", "Гость", "Персон", "Тип", "Статус"});
+        {"ID", "Код", "Время", "Стол", "Гость", "Персон", "Тип", "Статус", "Депозит"});
     reservationsTable_->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
     reservationsTable_->setSelectionBehavior(QAbstractItemView::SelectRows);
     reservationsTable_->setEditTriggers(QAbstractItemView::NoEditTriggers);
@@ -277,7 +291,12 @@ QWidget* MainWindow::createBookingTab() {
     waitlistTable_->setHorizontalHeaderLabels({"ID", "Гость", "Телефон", "Желаемый час", "Комментарий"});
     waitlistTable_->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
     waitlistTable_->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    waitlistTable_->setSelectionBehavior(QAbstractItemView::SelectRows);
     listLayout->addWidget(waitlistTable_, 1);
+
+    QPushButton* removeWaitBtn = new QPushButton("Убрать выбранного гостя из листа ожидания");
+    connect(removeWaitBtn, &QPushButton::clicked, this, &MainWindow::onRemoveWaitlistClicked);
+    listLayout->addWidget(removeWaitBtn);
 
     layout->addWidget(listBox, 3);
     return tab;
@@ -293,7 +312,7 @@ QWidget* MainWindow::createRecommenderTab() {
 
     QFormLayout* tForm = new QFormLayout();
     recPartySpin_ = new QSpinBox();
-    recPartySpin_->setRange(1, 10);
+    recPartySpin_->setRange(1, maxTableCapacity_);
     recPartySpin_->setValue(2);
     tForm->addRow("Количество гостей:", recPartySpin_);
 
@@ -448,6 +467,7 @@ QWidget* MainWindow::createReviewsAndAnalyticsTab() {
 
     addGrid->addWidget(new QLabel("Имя гостя:"), 0, 0);
     revAuthorEdit_ = new QLineEdit("Гость");
+    revAuthorEdit_->setMaxLength(60);
     addGrid->addWidget(revAuthorEdit_, 0, 1);
 
     addGrid->addWidget(new QLabel("Оценка (1..5 ★):"), 0, 2);
@@ -465,15 +485,12 @@ QWidget* MainWindow::createReviewsAndAnalyticsTab() {
     addGrid->addWidget(revTableCombo_, 1, 1);
 
     addGrid->addWidget(new QLabel("Блюдо:"), 1, 2);
-    revDishCombo_ = new QComboBox();
-    revDishCombo_->addItem("Не привязано", 0);
-    for (const auto& d : db_.getAllDishes()) {
-        revDishCombo_->addItem(d.name, d.id);
-    }
+    revDishCombo_ = new QComboBox();   // заполняется в reloadDishCombos()
     addGrid->addWidget(revDishCombo_, 1, 3);
 
     addGrid->addWidget(new QLabel("Текст отзыва:"), 2, 0);
     revCommentEdit_ = new QLineEdit();
+    revCommentEdit_->setMaxLength(1000);
     revCommentEdit_->setPlaceholderText("Поделитесь впечатлениями о столике, кухне и атмосфере...");
     addGrid->addWidget(revCommentEdit_, 2, 1, 1, 3);
 
@@ -518,6 +535,13 @@ QWidget* MainWindow::createReviewsAndAnalyticsTab() {
 }
 
 void MainWindow::onDateTimeFilterChanged() {
+    // Визит должен закончиться до закрытия: ограничиваем длительность в зависимости от часа начала
+    const int maxDuration = std::min(DatabaseManager::MAX_DURATION_HOURS,
+                                     DatabaseManager::CLOSE_HOUR - hourSpin_->value());
+    if (durationSpin_->maximum() != maxDuration) {
+        QSignalBlocker blocker(durationSpin_);
+        durationSpin_->setMaximum(maxDuration);
+    }
     refreshAllViews();
 }
 
@@ -530,20 +554,19 @@ void MainWindow::refreshAllViews() {
 }
 
 void MainWindow::refreshFloorMapAndCard() {
-    auto tables = db_.getAllTables();
-    QString date = activeDateString();
-    int hour = hourSpin_->value();
-    int dur = durationSpin_->value();
+    const auto tables = db_.getAllTables();
+    const QString date = activeDateString();
+    const int hour = hourSpin_->value();
+    const int dur = durationSpin_->value();
 
-    QMap<int, int> occMap;
-    QMap<int, double> ratMap;
+    // Один запрос на все столы вместо отдельного запроса на каждый стол
+    const QMap<int, int> occMap = db_.getOccupancyMap(date, hour, dur);
+    const QMap<int, double> ratMap = db_.getAverageTableRatings();
     int freeCount = 0;
     int seatedCount = 0;
 
     for (const auto& t : tables) {
-        int st = db_.getTableOccupancyStatus(t.id, date, hour, dur);
-        occMap[t.id] = st;
-        ratMap[t.id] = db_.getAverageTableRating(t.id);
+        const int st = occMap.value(t.id, 0);
         if (st == 0) ++freeCount;
         if (st == 2) ++seatedCount;
     }
@@ -579,18 +602,19 @@ void MainWindow::onTableSelectedOnMap(int tableId) {
 
     cardDepositLabel_->setText(t.minDeposit > 0.0
         ? QString("<b>Минимальный депозит:</b> %1 руб.").arg(t.minDeposit, 0, 'f', 0)
-        : "<b>Депозит:</b> Без обязательного депозита");
+        : QString("<b>Депозит:</b> Без обязательного депозита"));
 
     double avgR = db_.getAverageTableRating(t.id);
     cardRatingLabel_->setText(avgR > 0.0
         ? QString("Рейтинг стола по отзывам: ★ %1 / 5.0").arg(avgR, 0, 'f', 1)
-        : "Рейтинг стола: пока нет оценок");
+        : QString("Рейтинг стола: пока нет оценок"));
 
-    QString date = activeDateString();
+    const QString date = activeDateString();
+    const std::vector<int> dayStatuses = db_.getTableDayStatuses(t.id, date);
     QString sched = QString("Почасовой график на %1:\n").arg(date);
-    for (int h = 10; h < 23; ++h) {
-        int st = db_.getTableOccupancyStatus(t.id, date, h, 1);
-        QString tag = (st == 0) ? "[Своб]" : (st == 1 ? "[Бронь]" : "[Занят]");
+    for (int h = DatabaseManager::OPEN_HOUR; h < DatabaseManager::CLOSE_HOUR; ++h) {
+        const int st = dayStatuses[static_cast<size_t>(h - DatabaseManager::OPEN_HOUR)];
+        const QString tag = (st == 0) ? "[Своб]" : (st == 1 ? "[Бронь]" : "[Занят]");
         sched += QString("%1:00%2 ").arg(h, 2, 10, QChar('0')).arg(tag);
         if (h == 15) sched += "\n";
     }
@@ -673,22 +697,67 @@ void MainWindow::onCreateReservationClicked() {
     res.comment = bookingCommentEdit_->toPlainText().trimmed();
     res.preorder = currentPreorder_;
 
-    QString code;
-    int newId = db_.createReservation(res, code);
-    if (newId == 0) {
-        QMessageBox::warning(this, "Столик недоступен",
-            "Выбранный столик уже занят на это время или его вместимость меньше размера вашей компании.\n"
-            "Воспользуйтесь вкладкой «Рекомендации под твой запрос» или добавьте гостя в Лист ожидания.");
+    // Быстрая проверка ввода — до диалогов про аллергены и депозит
+    if (!DatabaseManager::isValidGuestName(res.guestName)) {
+        QMessageBox::warning(this, "Имя гостя", "Укажите имя гостя (от 2 символов, с буквами).");
+        guestNameEdit_->setFocus();
+        return;
+    }
+    if (!DatabaseManager::isValidPhone(res.guestPhone)) {
+        QMessageBox::warning(this, "Телефон", "Укажите корректный телефон: от 7 до 15 цифр (допустимы +, пробелы, скобки, дефисы).");
+        guestPhoneEdit_->setFocus();
+        return;
+    }
+
+    // Предупреждение об аллергенах: в комментарии указана аллергия, а в предзаказе есть такое блюдо
+    const auto conflicts = db_.findAllergenConflicts(res.comment, res.preorder);
+    if (!conflicts.empty()) {
+        QString text = "В комментарии указана аллергия, но в предзаказе есть блюда с этим аллергеном:\n\n";
+        for (const auto& line : conflicts) text += QString(" • ") + line + "\n";
+        text += "\nСостав определён по описанию блюд, возможна перекрёстная реакция — уточните у шеф-повара.\n"
+                "Всё равно оформить бронь?";
+        if (QMessageBox::warning(this, "Возможный аллерген", text,
+                                 QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes) {
+            return;
+        }
+    }
+
+    // Депозит для VIP-столов при онлайн-записи
+    const TableInfo tbl = db_.getTableById(res.tableId);
+    if (res.bookingType == "Online" && tbl.minDeposit > 0.0) {
+        const QString question = QString("Для стола #%1 [%2] требуется депозит %3 руб.\nДепозит внесён гостем?")
+                                 .arg(tbl.id).arg(tbl.code).arg(tbl.minDeposit, 0, 'f', 0);
+        if (QMessageBox::question(this, "Депозит", question,
+                                  QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes) {
+            QMessageBox::information(this, "Депозит",
+                "Без внесённого депозита бронь этого стола не оформляется.");
+            return;
+        }
+        res.depositPaid = tbl.minDeposit;
+    }
+
+    const ReservationResult result = db_.createReservation(res);
+    if (!result.ok) {
+        const bool tableProblem = (result.error == ReservationError::SlotTaken ||
+                                   result.error == ReservationError::CapacityExceeded);
+        QMessageBox::warning(this, tableProblem ? "Столик недоступен" : "Не удалось оформить запись", result.message +
+            (tableProblem ? QString("\n\nВоспользуйтесь вкладкой «Рекомендации под твой запрос» или добавьте гостя в Лист ожидания.") : QString()));
         return;
     }
 
     currentPreorder_.clear();
     bookingCommentEdit_->clear();
+    guestNameEdit_->clear();
+    guestPhoneEdit_->clear();
     refreshAllViews();
 
-    QMessageBox::information(this, "Запись успешно создана",
-        QString("Бронирование %1 успешно сохранено в базе SQLite!\nСтолик #%2 на %3 с %4:00.")
-        .arg(code).arg(res.tableId).arg(res.visitDate).arg(res.startHour));
+    QString info = QString("Бронирование %1 успешно сохранено в базе SQLite!\nСтолик #%2 на %3 с %4:00 до %5:00.")
+                   .arg(result.bookingCode).arg(res.tableId).arg(res.visitDate)
+                   .arg(res.startHour).arg(res.startHour + res.durationHours);
+    if (res.depositPaid > 0.0) {
+        info += QString("\nДепозит: %1 руб.").arg(res.depositPaid, 0, 'f', 0);
+    }
+    QMessageBox::information(this, "Запись успешно создана", info);
 }
 
 int MainWindow::selectedReservationIdFromTable() const {
@@ -698,45 +767,68 @@ int MainWindow::selectedReservationIdFromTable() const {
     return reservationsTable_->item(row, 0)->text().toInt();
 }
 
-void MainWindow::onCheckInClicked() {
-    int id = selectedReservationIdFromTable();
-    if (id == 0) return;
-    if (db_.updateReservationStatus(id, "Seated")) {
-        refreshAllViews();
+int MainWindow::requireSelectedReservationId() {
+    const int id = selectedReservationIdFromTable();
+    if (id == 0) {
+        QMessageBox::information(this, "Выберите бронь", "Сначала выберите бронь в журнале (щёлкните по строке таблицы).");
     }
+    return id;
+}
+
+void MainWindow::changeReservationStatus(const QString& newStatus, const QString& confirmQuestion) {
+    const int id = requireSelectedReservationId();
+    if (id == 0) return;
+
+    if (!confirmQuestion.isEmpty()) {
+        const ReservationInfo r = db_.getReservationById(id);
+        const QString text = confirmQuestion.arg(r.bookingCode, r.guestName);
+        if (QMessageBox::question(this, "Подтверждение", text,
+                                  QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes) {
+            return;
+        }
+    }
+
+    QString error;
+    if (!db_.updateReservationStatus(id, newStatus, &error)) {
+        QMessageBox::warning(this, "Действие невозможно", error);
+    }
+    refreshAllViews();
+}
+
+void MainWindow::onCheckInClicked() {
+    changeReservationStatus("Seated", QString());
 }
 
 void MainWindow::onCheckOutClicked() {
-    int id = selectedReservationIdFromTable();
-    if (id == 0) return;
-    if (db_.updateReservationStatus(id, "Completed")) {
-        refreshAllViews();
-    }
+    changeReservationStatus("Completed", "Закрыть счёт и освободить стол по брони %1 (%2)?");
 }
 
 void MainWindow::onCancelReservationClicked() {
-    int id = selectedReservationIdFromTable();
-    if (id == 0) return;
-    if (db_.updateReservationStatus(id, "Cancelled")) {
-        refreshAllViews();
-    }
+    changeReservationStatus("Cancelled", "Отменить бронь %1 (%2)?");
 }
 
 void MainWindow::onEditReservationCommentClicked() {
-    int id = selectedReservationIdFromTable();
+    const int id = requireSelectedReservationId();
     if (id == 0) return;
     ReservationInfo r = db_.getReservationById(id);
     bool ok = false;
     QString text = QInputDialog::getText(this, "Комментарий к брони " + r.bookingCode,
                                          "Пожелания гостя / комментарий хостес:", QLineEdit::Normal, r.comment, &ok);
-    if (ok) {
-        db_.updateReservationComment(id, text);
-        refreshAllViews();
+    if (!ok) return;
+    if (text.size() > DatabaseManager::MAX_COMMENT_LENGTH) {
+        QMessageBox::warning(this, "Комментарий",
+            QString("Комментарий слишком длинный (максимум %1 символов).").arg(DatabaseManager::MAX_COMMENT_LENGTH));
+        return;
     }
+    if (!db_.updateReservationComment(id, text)) {
+        QMessageBox::warning(this, "Комментарий", "Не удалось сохранить комментарий.");
+        return;
+    }
+    refreshAllViews();
 }
 
 void MainWindow::onShowReceiptClicked() {
-    int id = selectedReservationIdFromTable();
+    const int id = requireSelectedReservationId();
     if (id == 0) return;
     ReservationInfo r = db_.getReservationById(id);
     TableInfo t = db_.getTableById(r.tableId);
@@ -753,8 +845,13 @@ void MainWindow::onShowReceiptClicked() {
         .arg(r.bookingCode).arg(r.guestName).arg(r.guestPhone)
         .arg(r.visitDate).arg(r.startHour).arg(r.startHour + r.durationHours)
         .arg(t.id).arg(t.code).arg(t.zone)
-        .arg(r.partySize).arg(r.occasion).arg(r.bookingType).arg(r.status)
-        .arg(r.comment.isEmpty() ? "—" : r.comment);
+        .arg(r.partySize).arg(r.occasion).arg(r.bookingType == "Online" ? "Онлайн" : "Walk-in")
+        .arg(reservationStatusLabel(r.status))
+        .arg(r.comment.isEmpty() ? QString("—") : r.comment);
+
+    if (r.depositPaid > 0.0) {
+        receipt += QString("Внесённый депозит: %1 руб.\n").arg(r.depositPaid, 0, 'f', 0);
+    }
 
     if (!r.preorder.empty()) {
         receipt += "\nПредзаказ по меню:\n";
@@ -782,10 +879,27 @@ void MainWindow::onAddWaitlistClicked() {
     w.comment = bookingCommentEdit_->toPlainText().trimmed();
     if (w.comment.isEmpty()) w.comment = "Ожидает освобождения столика";
 
-    if (db_.addToWaitlist(w)) {
-        refreshReservationsAndWaitlist();
-        QMessageBox::information(this, "Лист ожидания", "Гость успешно добавлен в Лист ожидания (Waitlist).");
+    QString error;
+    if (!db_.addToWaitlist(w, &error)) {
+        QMessageBox::warning(this, "Лист ожидания", error);
+        return;
     }
+    refreshReservationsAndWaitlist();
+    QMessageBox::information(this, "Лист ожидания", "Гость успешно добавлен в Лист ожидания (Waitlist).");
+}
+
+void MainWindow::onRemoveWaitlistClicked() {
+    const auto items = waitlistTable_->selectedItems();
+    if (items.isEmpty()) {
+        QMessageBox::information(this, "Лист ожидания", "Выберите гостя в таблице листа ожидания.");
+        return;
+    }
+    const QTableWidgetItem* idItem = waitlistTable_->item(items.first()->row(), 0);
+    if (!idItem) return;
+    if (!db_.removeFromWaitlist(idItem->text().toInt())) {
+        QMessageBox::warning(this, "Лист ожидания", "Не удалось удалить запись.");
+    }
+    refreshReservationsAndWaitlist();
 }
 
 void MainWindow::refreshReservationsAndWaitlist() {
@@ -795,15 +909,22 @@ void MainWindow::refreshReservationsAndWaitlist() {
         const auto& r = list[i];
         TableInfo t = db_.getTableById(r.tableId);
         int row = static_cast<int>(i);
-        reservationsTable_->setItem(row, 0, new QTableWidgetItem(QString::number(r.id)));
-        reservationsTable_->setItem(row, 1, new QTableWidgetItem(r.bookingCode));
-        reservationsTable_->setItem(row, 2, new QTableWidgetItem(
-            QString("%1:00-%2:00").arg(r.startHour, 2, 10, QChar('0')).arg(r.startHour + r.durationHours, 2, 10, QChar('0'))));
-        reservationsTable_->setItem(row, 3, new QTableWidgetItem(QString("#%1 [%2]").arg(t.id).arg(t.code)));
-        reservationsTable_->setItem(row, 4, new QTableWidgetItem(r.guestName));
-        reservationsTable_->setItem(row, 5, new QTableWidgetItem(QString::number(r.partySize)));
-        reservationsTable_->setItem(row, 6, new QTableWidgetItem(r.bookingType == "Online" ? "Онлайн" : "Walk-in"));
-        reservationsTable_->setItem(row, 7, new QTableWidgetItem(r.status));
+        QTableWidgetItem* cells[9] = {
+            new QTableWidgetItem(QString::number(r.id)),
+            new QTableWidgetItem(r.bookingCode),
+            new QTableWidgetItem(QString("%1:00-%2:00").arg(r.startHour, 2, 10, QChar('0')).arg(r.startHour + r.durationHours, 2, 10, QChar('0'))),
+            new QTableWidgetItem(QString("#%1 [%2]").arg(t.id).arg(t.code)),
+            new QTableWidgetItem(r.guestName),
+            new QTableWidgetItem(QString::number(r.partySize)),
+            new QTableWidgetItem(r.bookingType == "Online" ? "Онлайн" : "Walk-in"),
+            new QTableWidgetItem(reservationStatusLabel(r.status)),
+            new QTableWidgetItem(r.depositPaid > 0.0 ? QString("%1 руб.").arg(r.depositPaid, 0, 'f', 0) : QString("—"))
+        };
+        const bool inactive = (r.status == "Cancelled" || r.status == "Completed");
+        for (int col = 0; col < 9; ++col) {
+            if (inactive) cells[col]->setForeground(QBrush(QColor(125, 130, 150)));
+            reservationsTable_->setItem(row, col, cells[col]);
+        }
     }
 
     auto wl = db_.getWaitlist();
@@ -811,7 +932,7 @@ void MainWindow::refreshReservationsAndWaitlist() {
     for (size_t i = 0; i < wl.size(); ++i) {
         int row = static_cast<int>(i);
         waitlistTable_->setItem(row, 0, new QTableWidgetItem(QString::number(wl[i].id)));
-        waitlistTable_->setItem(row, 1, new QTableWidgetItem(wl[i].guestName));
+        waitlistTable_->setItem(row, 1, new QTableWidgetItem(QString("%1 (%2 чел.)").arg(wl[i].guestName).arg(wl[i].partySize)));
         waitlistTable_->setItem(row, 2, new QTableWidgetItem(wl[i].guestPhone));
         waitlistTable_->setItem(row, 3, new QTableWidgetItem(QString("%1 (%2:00)").arg(wl[i].visitDate).arg(wl[i].preferredHour)));
         waitlistTable_->setItem(row, 4, new QTableWidgetItem(wl[i].comment));
@@ -831,6 +952,13 @@ void MainWindow::onRunTableRecommender() {
     pref.preferSofa = recSofaCheck_->isChecked();
 
     lastTableRecs_ = db_.recommendTables(pref);
+    if (lastTableRecs_.empty()) {
+        recTablesWidget_->setRowCount(1);
+        for (int col = 0; col < 5; ++col) recTablesWidget_->setItem(0, col, new QTableWidgetItem(QString()));
+        recTablesWidget_->setItem(0, 4, new QTableWidgetItem(
+            "Свободных подходящих столов на выбранное время нет — измените время/дату или запишите гостей в Лист ожидания"));
+        return;
+    }
     recTablesWidget_->setRowCount(static_cast<int>(lastTableRecs_.size()));
     for (size_t i = 0; i < lastTableRecs_.size(); ++i) {
         const auto& r = lastTableRecs_[i];
@@ -863,6 +991,10 @@ void MainWindow::onRunMenuRecommender() {
 
     lastMenuSets_ = db_.recommendMenuSets(pref);
     recMenuSetsList_->clear();
+    if (lastMenuSets_.empty()) {
+        recMenuSetsList_->addItem("Под эти условия сеты не найдены — увеличьте бюджет, лимит калорий или ослабьте диетические ограничения.");
+        return;
+    }
     for (const auto& s : lastMenuSets_) {
         QString text = QString("%1 — %2 руб. (%3 ккал)\n   %4\n")
                        .arg(s.title).arg(s.totalPrice, 0, 'f', 0).arg(s.totalCalories).arg(s.explanation);
@@ -912,42 +1044,129 @@ void MainWindow::refreshMenuTable() {
         menuTableWidget_->setItem(row, 4, new QTableWidgetItem(QString("%1 г | %2 ккал").arg(d.weightGrams).arg(d.calories)));
         menuTableWidget_->setItem(row, 5, new QTableWidgetItem(QString("~%1 мин").arg(d.prepTimeMin)));
         menuTableWidget_->setItem(row, 6, new QTableWidgetItem(avgR > 0.0 ? QString("★ %1").arg(avgR, 0, 'f', 1) : "Новинка"));
-        menuTableWidget_->setItem(row, 7, new QTableWidgetItem(QString("#%1 — %2").arg(d.tags.join(", #")).arg(d.description)));
+        QString details = QString("#%1 — %2").arg(d.tags.join(", #")).arg(d.description);
+        details += d.allergens.isEmpty() ? QString("\nАллергены: не указаны")
+                                         : QString("\nАллергены: %1").arg(d.allergens.join(", "));
+        menuTableWidget_->setItem(row, 7, new QTableWidgetItem(details));
     }
 }
 
 void MainWindow::onAddNewDishClicked() {
-    bool ok = false;
-    QString name = QInputDialog::getText(this, "Новое блюдо", "Название блюда:", QLineEdit::Normal, "", &ok);
-    if (!ok || name.trimmed().isEmpty()) return;
+    QDialog dlg(this);
+    dlg.setWindowTitle("Новое блюдо");
+    QVBoxLayout* root = new QVBoxLayout(&dlg);
 
-    QString cat = QInputDialog::getItem(this, "Категория", "Выберите категорию:",
-                                        {"Закуски", "Супы", "Горячее", "Десерты", "Напитки"}, 0, false, &ok);
-    if (!ok) return;
+    QFormLayout* form = new QFormLayout();
+    QLineEdit* nameEdit = new QLineEdit();
+    nameEdit->setMaxLength(100);
+    form->addRow("Название:", nameEdit);
 
-    double price = QInputDialog::getDouble(this, "Цена", "Цена (руб.):", 950.0, 100.0, 20000.0, 0, &ok);
-    if (!ok) return;
+    QComboBox* categoryCombo = new QComboBox();
+    categoryCombo->addItems({"Закуски", "Супы", "Горячее", "Десерты", "Напитки"});
+    form->addRow("Категория:", categoryCombo);
+
+    QDoubleSpinBox* priceSpin = new QDoubleSpinBox();
+    priceSpin->setRange(1.0, 100000.0);
+    priceSpin->setDecimals(0);
+    priceSpin->setValue(950.0);
+    priceSpin->setSuffix(" руб.");
+    form->addRow("Цена:", priceSpin);
+
+    QSpinBox* weightSpin = new QSpinBox();
+    weightSpin->setRange(1, 5000);
+    weightSpin->setValue(250);
+    weightSpin->setSuffix(" г");
+    form->addRow("Вес порции:", weightSpin);
+
+    QSpinBox* caloriesSpin = new QSpinBox();
+    caloriesSpin->setRange(0, 5000);
+    caloriesSpin->setValue(380);
+    caloriesSpin->setSuffix(" ккал");
+    form->addRow("Калорийность:", caloriesSpin);
+
+    QSpinBox* prepSpin = new QSpinBox();
+    prepSpin->setRange(1, 240);
+    prepSpin->setValue(15);
+    prepSpin->setSuffix(" мин");
+    form->addRow("Время подачи:", prepSpin);
+
+    QLineEdit* descEdit = new QLineEdit();
+    descEdit->setMaxLength(DatabaseManager::MAX_COMMENT_LENGTH);
+    descEdit->setPlaceholderText("Состав блюда");
+    form->addRow("Описание/состав:", descEdit);
+    root->addLayout(form);
+
+    QGroupBox* tagBox = new QGroupBox("Теги");
+    QHBoxLayout* tagLayout = new QHBoxLayout(tagBox);
+    std::vector<QCheckBox*> tagChecks;
+    for (const QString& tag : QStringList{"вегетарианское", "без глютена", "морепродукты", "хит шефа", "легкое", "острое"}) {
+        QCheckBox* cb = new QCheckBox(tag);
+        tagChecks.push_back(cb);
+        tagLayout->addWidget(cb);
+    }
+    root->addWidget(tagBox);
+
+    QGroupBox* allergenBox = new QGroupBox("Аллергены (отметьте все, что есть в составе)");
+    QGridLayout* allergenLayout = new QGridLayout(allergenBox);
+    std::vector<QCheckBox*> allergenChecks;
+    int pos = 0;
+    for (const QString& allergen : allergenVocabulary()) {
+        QCheckBox* cb = new QCheckBox(allergen);
+        allergenChecks.push_back(cb);
+        allergenLayout->addWidget(cb, pos / 3, pos % 3);
+        ++pos;
+    }
+    root->addWidget(allergenBox);
+
+    QDialogButtonBox* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+    connect(buttons, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
+    connect(buttons, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
+    root->addWidget(buttons);
+
+    if (dlg.exec() != QDialog::Accepted) return;
 
     DishInfo d;
-    d.name = name.trimmed();
-    d.category = cat;
-    d.price = price;
-    d.weightGrams = 250;
-    d.calories = 380;
-    d.prepTimeMin = 15;
-    d.tags = {"хит шефа"};
-    d.description = "Авторское блюдо шеф-повара";
+    d.name = nameEdit->text();
+    d.category = categoryCombo->currentText();
+    d.price = priceSpin->value();
+    d.weightGrams = weightSpin->value();
+    d.calories = caloriesSpin->value();
+    d.prepTimeMin = prepSpin->value();
+    d.description = descEdit->text().trimmed().isEmpty() ? QString("Авторское блюдо шеф-повара") : descEdit->text();
+    for (const QCheckBox* cb : tagChecks) if (cb->isChecked()) d.tags << cb->text();
+    for (const QCheckBox* cb : allergenChecks) if (cb->isChecked()) d.allergens << cb->text();
 
-    if (db_.addDish(d)) {
-        preorderDishCombo_->addItem(QString("%1 (%2 руб.)").arg(d.name).arg(d.price, 0, 'f', 0));
-        refreshMenuTable();
+    QString error;
+    if (!db_.addDish(d, &error)) {
+        QMessageBox::warning(this, "Блюдо не добавлено", error);
+        return;
     }
+    reloadDishCombos();   // новое блюдо сразу доступно в предзаказе и в отзывах
+    refreshMenuTable();
+}
+
+void MainWindow::reloadDishCombos() {
+    const int prevPreorder = preorderDishCombo_->currentData().toInt();
+    const int prevReview = revDishCombo_->currentData().toInt();
+
+    preorderDishCombo_->clear();
+    revDishCombo_->clear();
+    revDishCombo_->addItem("Не привязано", 0);
+    for (const auto& d : db_.getAllDishes()) {
+        preorderDishCombo_->addItem(QString("%1 (%2 руб.)").arg(d.name).arg(d.price, 0, 'f', 0), d.id);
+        revDishCombo_->addItem(d.name, d.id);
+    }
+
+    int idx = preorderDishCombo_->findData(prevPreorder);
+    if (idx >= 0) preorderDishCombo_->setCurrentIndex(idx);
+    idx = revDishCombo_->findData(prevReview);
+    if (idx >= 0) revDishCombo_->setCurrentIndex(idx);
 }
 
 void MainWindow::onAddReviewClicked() {
     ReviewInfo r;
     r.authorName = revAuthorEdit_->text();
-    r.reviewDate = activeDateString();
+    r.reviewDate = QDate::currentDate().toString("yyyy-MM-dd");   // дата отзыва — сегодня, а не просматриваемая дата
     r.rating = revRatingSpin_->value();
     r.tableId = revTableCombo_->currentData().toInt();
     r.dishId = revDishCombo_->currentData().toInt();
@@ -956,23 +1175,31 @@ void MainWindow::onAddReviewClicked() {
         QMessageBox::warning(this, "Пустой отзыв", "Пожалуйста, напишите текст вашего комментария.");
         return;
     }
-    if (db_.addReview(r)) {
-        revCommentEdit_->clear();
-        refreshAllViews();
+    QString error;
+    if (!db_.addReview(r, &error)) {
+        QMessageBox::warning(this, "Отзыв не сохранён", error);
+        return;
     }
+    revCommentEdit_->clear();
+    refreshAllViews();
 }
 
 void MainWindow::onReplyToReviewClicked() {
     auto items = reviewsTable_->selectedItems();
-    if (items.isEmpty()) return;
+    if (items.isEmpty()) {
+        QMessageBox::information(this, "Ответ на отзыв", "Сначала выберите отзыв в таблице.");
+        return;
+    }
     int revId = reviewsTable_->item(items.first()->row(), 0)->text().toInt();
     bool ok = false;
     QString reply = QInputDialog::getText(this, "Ответ ресторана", "Введите ответ управляющего на отзыв:",
                                           QLineEdit::Normal, "Благодарим за ваш отзыв! Ждем вас снова.", &ok);
-    if (ok && !reply.trimmed().isEmpty()) {
-        db_.addManagerReply(revId, reply.trimmed());
-        refreshReviewsAndAnalytics();
+    if (!ok || reply.trimmed().isEmpty()) return;
+    if (!db_.addManagerReply(revId, reply)) {
+        QMessageBox::warning(this, "Ответ на отзыв", "Не удалось сохранить ответ (максимум 1000 символов).");
+        return;
     }
+    refreshReviewsAndAnalytics();
 }
 
 void MainWindow::refreshReviewsAndAnalytics() {
@@ -988,50 +1215,50 @@ void MainWindow::refreshReviewsAndAnalytics() {
         QString target;
         if (r.tableId > 0) target += QString("Стол #%1 ").arg(r.tableId);
         if (r.dishId > 0)  target += QString("Блюдо #%1").arg(r.dishId);
-        reviewsTable_->setItem(row, 3, new QTableWidgetItem(target.isEmpty() ? "Общий" : target));
+        reviewsTable_->setItem(row, 3, new QTableWidgetItem(target.isEmpty() ? QString("Общий") : target));
         reviewsTable_->setItem(row, 4, new QTableWidgetItem(r.comment));
-        reviewsTable_->setItem(row, 5, new QTableWidgetItem(r.managerReply.isEmpty() ? "—" : r.managerReply));
+        reviewsTable_->setItem(row, 5, new QTableWidgetItem(r.managerReply.isEmpty() ? QString("—") : r.managerReply));
     }
 
-    // Расчет аналитики по базе SQLite на выбранную дату
-    QString date = activeDateString();
-    auto dayBookings = db_.getReservationsByDate(date);
-    int onlineCnt = 0, walkInCnt = 0, totalGuests = 0;
-    double revenue = 0.0;
+    // Аналитика по базе SQLite на выбранную дату
+    const QString date = activeDateString();
+    const auto dayBookings = db_.getReservationsByDate(date);
+    int onlineCnt = 0, walkInCnt = 0, totalGuests = 0, cancelledCnt = 0;
+    double preorderSum = 0.0;
+    double depositSum = 0.0;
 
     for (const auto& b : dayBookings) {
-        if (b.status == "Cancelled") continue;
+        if (b.status == "Cancelled") { ++cancelledCnt; continue; }
         if (b.bookingType == "Online") ++onlineCnt;
         else ++walkInCnt;
         totalGuests += b.partySize;
-        double pre = db_.calculatePreorderTotal(b.preorder, b.bookingType == "Online");
-        TableInfo t = db_.getTableById(b.tableId);
-        revenue += std::max(pre, t.minDeposit);
+        preorderSum += db_.calculatePreorderTotal(b.preorder, b.bookingType == "Online");
+        depositSum += b.depositPaid;
     }
 
     analyticsSummaryLabel_->setText(
         QString("<b>Сводка за %1:</b><br>"
-                "• Активных записей: <b>%2</b> (Онлайн: %3 | В ресторане Walk-in: %4)<br>"
-                "• Ожидаемое число гостей: <b>%5 чел.</b><br>"
-                "• Выручка по предзаказам и депозитам: <b>%6 руб.</b><br>"
-                "• Средний рейтинг по базе SQLite: <b>★ %7 / 5.0</b> (отзывов: %8)")
+                "• Активных записей: <b>%2</b> (Онлайн: %3 | В ресторане Walk-in: %4), отменено: %5<br>"
+                "• Ожидаемое число гостей: <b>%6 чел.</b><br>"
+                "• Сумма предзаказов (онлайн — со скидкой 5%): <b>%7 руб.</b><br>"
+                "• Принято депозитов за VIP-столы: <b>%8 руб.</b><br>"
+                "• Средний рейтинг по базе SQLite: <b>★ %9 / 5.0</b> (отзывов: %10)")
         .arg(date)
-        .arg(onlineCnt + walkInCnt).arg(onlineCnt).arg(walkInCnt)
+        .arg(onlineCnt + walkInCnt).arg(onlineCnt).arg(walkInCnt).arg(cancelledCnt)
         .arg(totalGuests)
-        .arg(revenue, 0, 'f', 0)
+        .arg(preorderSum, 0, 'f', 0)
+        .arg(depositSum, 0, 'f', 0)
         .arg(db_.getOverallRating(), 0, 'f', 2)
         .arg(revs.size()));
 
-    auto allTables = db_.getAllTables();
-    int totalTbls = std::max(1, static_cast<int>(allTables.size()));
+    // Почасовая загрузка: один запрос на все часы вместо «столы × часы» запросов
+    const int totalTbls = std::max(1, static_cast<int>(db_.getAllTables().size()));
+    const std::vector<int> busyByHour = db_.getBusyTableCountsByHour(date);
     for (int h = 12; h <= 22; ++h) {
-        int busy = 0;
-        for (const auto& t : allTables) {
-            if (db_.getTableOccupancyStatus(t.id, date, h, 1) != 0) ++busy;
-        }
-        int idx = h - 12;
-        if (idx >= 0 && idx < static_cast<int>(hourlyBars_.size())) {
-            hourlyBars_[idx]->setValue(busy * 100 / totalTbls);
+        const int idx = h - 12;
+        const size_t hourIdx = static_cast<size_t>(h - DatabaseManager::OPEN_HOUR);
+        if (idx >= 0 && idx < static_cast<int>(hourlyBars_.size()) && hourIdx < busyByHour.size()) {
+            hourlyBars_[static_cast<size_t>(idx)]->setValue(busyByHour[hourIdx] * 100 / totalTbls);
         }
     }
 }

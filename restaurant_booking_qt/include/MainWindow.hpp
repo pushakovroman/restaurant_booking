@@ -42,6 +42,7 @@ private slots:
     void onEditReservationCommentClicked();
     void onShowReceiptClicked();
     void onAddWaitlistClicked();
+    void onRemoveWaitlistClicked();
 
     // Вкладка Умных рекомендаций
     void onRunTableRecommender();
@@ -60,6 +61,7 @@ private slots:
 private:
     DatabaseManager& db_;
     int currentTableId_ = 1;
+    int maxTableCapacity_ = 10;
     std::vector<PreorderItem> currentPreorder_;
     std::vector<TableRecommendation> lastTableRecs_;
     std::vector<MenuSetRecommendation> lastMenuSets_;
@@ -142,6 +144,9 @@ private:
     void refreshPreorderWidget();
     void refreshMenuTable();
     void refreshReviewsAndAnalytics();
+    void reloadDishCombos();
+    void changeReservationStatus(const QString& newStatus, const QString& confirmQuestion);
+    int requireSelectedReservationId();
 
     QString activeDateString() const;
     int selectedReservationIdFromTable() const;

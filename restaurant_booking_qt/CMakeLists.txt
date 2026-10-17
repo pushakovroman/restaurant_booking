@@ -35,6 +35,7 @@ set(PROJECT_SOURCES
     src/MainWindow.cpp
     include/Models.hpp
     include/DatabaseManager.hpp
+    include/SchemaSql.hpp
     include/FloorMapWidget.hpp
     include/MainWindow.hpp
 )
@@ -63,13 +64,19 @@ target_link_libraries(RestaurantBookingApp PRIVATE
     Qt${QT_VERSION_MAJOR}::Sql
 )
 
-# Автоматическое копирование предзаполненной базы данных SQLite рядом с .exe при сборке
-add_custom_command(TARGET RestaurantBookingApp POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:RestaurantBookingApp>/data"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_CURRENT_SOURCE_DIR}/data/restaurant.db"
-        "$<TARGET_FILE_DIR:RestaurantBookingApp>/data/restaurant.db"
-)
+# База данных data/restaurant.db создаётся программой автоматически при первом запуске
+# (схема, демо-данные, а для БД старой версии — миграция), поэтому файл БД в проекте не хранится.
+
+# Автотест слоя БД (схема, миграция, триггеры): cmake -DBUILD_TESTS=ON, затем ctest
+option(BUILD_TESTS "Собрать автотесты базы данных SQLite" OFF)
+if(BUILD_TESTS)
+    find_package(SQLite3 REQUIRED)
+    enable_testing()
+    add_executable(restaurant_sqlite_tests tests/test_sqlite_db.cpp)
+    target_include_directories(restaurant_sqlite_tests PRIVATE include)
+    target_link_libraries(restaurant_sqlite_tests PRIVATE SQLite::SQLite3)
+    add_test(NAME sqlite_db COMMAND restaurant_sqlite_tests)
+endif()
 
 if(QT_VERSION_MAJOR EQUAL 6)
     qt_finalize_executable(RestaurantBookingApp)
