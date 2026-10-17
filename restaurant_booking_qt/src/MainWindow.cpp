@@ -1,5 +1,6 @@
 #include "MainWindow.hpp"
 #include <QListWidgetItem>
+#include <QTableWidgetItem>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGridLayout>
@@ -724,14 +725,12 @@ void MainWindow::onTableSelectedOnMap(int tableId) {
         : "Рейтинг стола: пока нет оценок");
 
     QString date = activeDateString();
-    QString sched = QString("Почасовой график на %1:
-").arg(date);
+    QString sched = QString("Почасовой график на %1:\n").arg(date);
     for (int h = 10; h < 23; ++h) {
         int st = db_.getTableOccupancyStatus(t.id, date, h, 1);
         QString tag = (st == 0) ? "[Своб]" : (st == 1 ? "[Бронь]" : "[Занят]");
         sched += QString("%1:00%2 ").arg(h, 2, 10, QChar('0')).arg(tag);
-        if (h == 15) sched += "
-";
+        if (h == 15) sched += "\n";
     }
     cardScheduleLabel_->setText(sched);
 
@@ -829,9 +828,7 @@ void MainWindow::onCreateReservationClicked() {
     int newId = db_.createReservation(res, code, &errMsg);
     if (newId == 0) {
         QMessageBox::warning(this, "Невозможно оформить бронь",
-            errMsg + "
-
-Воспользуйтесь вкладкой «Рекомендации под твой запрос» или добавьте гостя в Лист ожидания.");
+            errMsg + "\n\nВоспользуйтесь вкладкой «Рекомендации под твой запрос» или добавьте гостя в Лист ожидания.");
         return;
     }
 
@@ -840,8 +837,7 @@ void MainWindow::onCreateReservationClicked() {
     refreshAllViews();
 
     QMessageBox::information(this, "Запись успешно создана",
-        QString("Бронирование %1 успешно сохранено в базе SQLite!
-Столик #%2 на %3 (%4:00–%5:00).")
+        QString("Бронирование %1 успешно сохранено в базе SQLite!\nСтолик #%2 на %3 (%4:00–%5:00).")
         .arg(code).arg(res.tableId).arg(res.visitDate).arg(res.startHour).arg(res.startHour + res.durationHours));
 }
 
@@ -986,8 +982,7 @@ void MainWindow::onExportReceiptClicked() {
 #endif
         out << db_.formatReservationReceipt(id);
         file.close();
-        QMessageBox::information(this, "Экспорт выполнен", "Квитанция успешно сохранена в файл:
-" + path);
+        QMessageBox::information(this, "Экспорт выполнен", "Квитанция успешно сохранена в файл:\n" + path);
     }
 }
 
@@ -1115,13 +1110,10 @@ void MainWindow::onRunMenuRecommender() {
     lastMenuSets_ = db_.recommendMenuSets(pref);
     recMenuSetsList_->clear();
     for (const auto& s : lastMenuSets_) {
-        QString text = QString("%1 — %2 руб. (%3 ккал | подача ~%4 мин)
-   %5
-")
+        QString text = QString("%1 — %2 руб. (%3 ккал | подача ~%4 мин)\n   %5\n")
                        .arg(s.title).arg(s.totalPrice, 0, 'f', 0).arg(s.totalCalories).arg(s.maxPrepTimeMin).arg(s.explanation);
         for (const auto& d : s.dishes) {
-            text += QString("   • [%1] %2 — %3 руб. (%4 ккал)
-")
+            text += QString("   • [%1] %2 — %3 руб. (%4 ккал)\n")
                     .arg(d.category).arg(d.name).arg(d.price, 0, 'f', 0).arg(d.calories);
         }
         recMenuSetsList_->addItem(text.trimmed());
@@ -1307,8 +1299,7 @@ void MainWindow::onExportAnalyticsReportClicked() {
 #endif
         out << db_.formatDailyAnalyticsReport(date);
         file.close();
-        QMessageBox::information(this, "Отчет сохранен", "Аналитический отчет успешно сохранен:
-" + path);
+        QMessageBox::information(this, "Отчет сохранен", "Аналитический отчет успешно сохранен:\n" + path);
     }
 }
 

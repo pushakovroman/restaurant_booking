@@ -1063,30 +1063,18 @@ QString DatabaseManager::formatReservationReceipt(int reservationId) const {
     TableInfo t = getTableById(r.tableId);
 
     QString out = QString(
-        "========================================================
-"
-        "      КВИТАНЦИЯ БРОНИРОВАНИЯ «AURA GASTRONOMY»
-"
-        "========================================================
-"
-        "Код брони:       %1 (ID: %2)
-"
-        "Тип записи:      %3
-"
-        "Статус:          %4
-"
-        "Гость:           %5
-"
-        "Телефон:         %6
-"
-        "Дата и время:    %7, %8:00 - %9:00 (%10 ч.)
-"
-        "Столик:          #%11 [%12] — %13 (до %14 чел.)
-"
-        "Персон в группе: %15 | Повод: %16
-"
-        "Пожелания:       %17
-")
+        "========================================================\n"
+        "      КВИТАНЦИЯ БРОНИРОВАНИЯ «AURA GASTRONOMY»\n"
+        "========================================================\n"
+        "Код брони:       %1 (ID: %2)\n"
+        "Тип записи:      %3\n"
+        "Статус:          %4\n"
+        "Гость:           %5\n"
+        "Телефон:         %6\n"
+        "Дата и время:    %7, %8:00 - %9:00 (%10 ч.)\n"
+        "Столик:          #%11 [%12] — %13 (до %14 чел.)\n"
+        "Персон в группе: %15 | Повод: %16\n"
+        "Пожелания:       %17\n")
         .arg(r.bookingCode).arg(r.id)
         .arg(r.bookingType == "Online" ? "Онлайн-бронирование" : "В ресторане (Walk-in)")
         .arg(r.status)
@@ -1098,38 +1086,30 @@ QString DatabaseManager::formatReservationReceipt(int reservationId) const {
         .arg(r.comment.isEmpty() ? "—" : r.comment);
 
     if (t.minDeposit > 0.0) {
-        out += QString("Мин. депозит:    %1 руб.
-").arg(t.minDeposit, 0, 'f', 0);
+        out += QString("Мин. депозит:    %1 руб.\n").arg(t.minDeposit, 0, 'f', 0);
     }
 
     if (!r.preorder.empty()) {
-        out += "--------------------------------------------------------
-"
-               "Предзаказ по меню:
-";
+        out += "--------------------------------------------------------\n"
+               "Предзаказ по меню:\n";
         double raw = 0.0;
         for (const auto& item : r.preorder) {
             double line = item.unitPrice * item.quantity;
             raw += line;
-            out += QString("  * %1 x%2 = %3 руб.
-")
+            out += QString("  * %1 x%2 = %3 руб.\n")
                    .arg(item.dishName).arg(item.quantity).arg(line, 0, 'f', 0);
         }
         bool isOnline = (r.bookingType == "Online");
         double finalSum = calculatePreorderTotal(r.preorder, isOnline);
         if (isOnline) {
-            out += QString("Сумма без скидки: %1 руб.
-"
-                           "ИТОГО со скидкой 5% (онлайн-предзаказ): %2 руб.
-")
+            out += QString("Сумма без скидки: %1 руб.\n"
+                           "ИТОГО со скидкой 5% (онлайн-предзаказ): %2 руб.\n")
                    .arg(raw, 0, 'f', 0).arg(finalSum, 0, 'f', 0);
         } else {
-            out += QString("ИТОГО по заказу: %1 руб.
-").arg(finalSum, 0, 'f', 0);
+            out += QString("ИТОГО по заказу: %1 руб.\n").arg(finalSum, 0, 'f', 0);
         }
     }
-    out += "========================================================
-";
+    out += "========================================================\n";
     return out;
 }
 
@@ -1152,26 +1132,16 @@ QString DatabaseManager::formatDailyAnalyticsReport(const QString& date) const {
     }
 
     QString report = QString(
-        "========================================================
-"
-        "   АНАЛИТИЧЕСКИЙ ОТЧЕТ РЕСТОРАНА «AURA GASTRONOMY»
-"
-        "   Дата отчета: %1
-"
-        "========================================================
-"
-        "Активных броней:       %2 (Онлайн: %3 | Walk-in: %4 | Отменено: %5)
-"
-        "Ожидаемое число гостей: %6 чел.
-"
-        "Ожидаемая выручка:      %7 руб.
-"
-        "Средний рейтинг:        ★ %8 / 5.0
-"
-        "--------------------------------------------------------
-"
-        "Почасовая загрузка столов:
-")
+        "========================================================\n"
+        "   АНАЛИТИЧЕСКИЙ ОТЧЕТ РЕСТОРАНА «AURA GASTRONOMY»\n"
+        "   Дата отчета: %1\n"
+        "========================================================\n"
+        "Активных броней:       %2 (Онлайн: %3 | Walk-in: %4 | Отменено: %5)\n"
+        "Ожидаемое число гостей: %6 чел.\n"
+        "Ожидаемая выручка:      %7 руб.\n"
+        "Средний рейтинг:        ★ %8 / 5.0\n"
+        "--------------------------------------------------------\n"
+        "Почасовая загрузка столов:\n")
         .arg(date)
         .arg(onlineCnt + walkInCnt).arg(onlineCnt).arg(walkInCnt).arg(cancelledCnt)
         .arg(totalGuests)
@@ -1185,12 +1155,10 @@ QString DatabaseManager::formatDailyAnalyticsReport(const QString& date) const {
         for (const auto& t : tables) {
             if (getTableOccupancyStatus(t.id, date, h, 1) != 0) ++busy;
         }
-        report += QString("  %1:00 — занято %2 из %3 столов (%4%)
-")
+        report += QString("  %1:00 — занято %2 из %3 столов (%4%)\n")
                   .arg(h, 2, 10, QChar('0')).arg(busy).arg(totalTbls).arg(busy * 100 / totalTbls);
     }
-    report += "========================================================
-";
+    report += "========================================================\n";
     return report;
 }
 

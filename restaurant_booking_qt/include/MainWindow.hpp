@@ -14,6 +14,8 @@
 #include <QCheckBox>
 #include <QTableWidget>
 #include <QListWidget>
+#include <QListWidgetItem>
+#include <QTableWidgetItem>
 #include <QLabel>
 #include <QProgressBar>
 #include <vector>

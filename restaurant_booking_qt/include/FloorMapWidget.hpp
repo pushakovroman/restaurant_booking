@@ -5,6 +5,8 @@
 #include <QWidget>
 #include <QMap>
 #include <QRectF>
+#include <QPoint>
+#include <QPointF>
 #include <vector>
 
 namespace Restaurant {

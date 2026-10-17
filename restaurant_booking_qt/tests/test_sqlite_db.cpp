@@ -44,7 +44,7 @@ static double querySingleDouble(sqlite3* db, const std::string& sql) {
 }
 
 int main() {
-    std::cout << "Запуск расширенного набора тестов базы данных SQLite (data/restaurant.db)...\n";
+    std::cout << "Запуск расширенного набора тестов базы данных SQLite (data/restaurant.db)...\\n";
 
     sqlite3* db = nullptr;
     int rc = sqlite3_open("/tmp/restaurant.db", &db);
@@ -53,18 +53,18 @@ int main() {
 
     // 1. Проверка таблиц столов (2D-карта)
     assert(querySingleInt(db, "SELECT COUNT(*) FROM tables;") == 12);
-    std::cout << " [OK] Тест 1: Таблица 'tables' содержит 12 столов с координатами и зонами.\n";
+    std::cout << " [OK] Тест 1: Таблица 'tables' содержит 12 столов с координатами и зонами.\\n";
 
     // 2. Проверка наличия индексов производительности
     int idxCount = querySingleInt(db, "SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name LIKE 'idx_%';");
     assert(idxCount == 6);
-    std::cout << " [OK] Тест 2: Все 6 индексов быстрого поиска SQLite созданы корректно.\n";
+    std::cout << " [OK] Тест 2: Все 6 индексов быстрого поиска SQLite созданы корректно.\\n";
 
     // 3. Проверка меню и ограничений CHECK(price >= 0)
     assert(querySingleInt(db, "SELECT COUNT(*) FROM dishes;") == 14);
     int badInsert = sqlite3_exec(db, "INSERT INTO dishes (name, category, price) VALUES ('Bad', 'Супы', -100);", nullptr, nullptr, nullptr);
     assert(badInsert != 0); // Ограничение CHECK(price >= 0) должно заблокировать отрицательную цену!
-    std::cout << " [OK] Тест 3: Защита целостности данных CHECK(price >= 0) заблокировала некорректную цену.\n";
+    std::cout << " [OK] Тест 3: Защита целостности данных CHECK(price >= 0) заблокировала некорректную цену.\\n";
 
     // 4. Проверка защиты часов работы CHECK(start_hour >= 10 AND start_hour < 23)
     int badHour = sqlite3_exec(db,
@@ -72,22 +72,22 @@ int main() {
         "VALUES ('BK-9999', 'Тест', '-', '2026-10-16', 23, 2, 2, 1, 'Online', 'Confirmed', 'Тест');",
         nullptr, nullptr, nullptr);
     assert(badHour != 0);
-    std::cout << " [OK] Тест 4: Ограничение CHECK(start_hour) защитило от записи в нерабочие часы.\n";
+    std::cout << " [OK] Тест 4: Ограничение CHECK(start_hour) защитило от записи в нерабочие часы.\\n";
 
     // 5. Проверка связей FOREIGN KEY для предзаказа (preorder_items JOIN dishes)
     double preorderSum1001 = querySingleDouble(db,
         "SELECT SUM(d.price * p.quantity) FROM preorder_items p "
         "JOIN dishes d ON p.dish_id = d.id WHERE p.reservation_id = 1001;");
     assert(std::abs(preorderSum1001 - 4910.0) < 0.01);
-    std::cout << " [OK] Тест 5: Связанная таблица 'preorder_items' точно рассчитывает чек предзаказа (4910 руб.).\n";
+    std::cout << " [OK] Тест 5: Связанная таблица 'preorder_items' точно рассчитывает чек предзаказа (4910 руб.).\\n";
 
     // 6. Проверка каскадного удаления и листа ожидания
     assert(querySingleInt(db, "SELECT COUNT(*) FROM waitlist;") == 1);
     double avgRating = querySingleDouble(db, "SELECT AVG(rating) FROM reviews;");
     assert(std::abs(avgRating - 4.75) < 0.01);
-    std::cout << " [OK] Тест 6: Лист ожидания ('waitlist') и рейтинг отзывов (★ " << avgRating << "/5.0) проверены.\n";
+    std::cout << " [OK] Тест 6: Лист ожидания ('waitlist') и рейтинг отзывов (★ " << avgRating << "/5.0) проверены.\\n";
 
     sqlite3_close(db);
-    std::cout << "\nВСЕ ТЕСТЫ БАЗЫ ДАННЫХ И ЗАЩИТЫ ЦЕЛОСТНОСТИ ПРОЙДЕНЫ (6/6)!\n";
+    std::cout << "\\nВСЕ ТЕСТЫ БАЗЫ ДАННЫХ И ЗАЩИТЫ ЦЕЛОСТНОСТИ ПРОЙДЕНЫ (6/6)!\\n";
     return 0;
 }
